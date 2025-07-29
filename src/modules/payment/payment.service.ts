@@ -7,15 +7,15 @@ export class PaymentService {
   private stripe: Stripe;
   private baseUrl: string;
   constructor(private configService: ConfigService) {
-    this.stripe = new Stripe(
-      this.configService.get<string>('STRIPE_SECRET_KEY'),
-      {
-        apiVersion: '2025-03-31.basil',
-      },
-    );
-    this.baseUrl =
-      this.configService.get<string>('EXPOSURE_FRONTEND') ||
-      'http://localhost:3000';
+  //   this.stripe = new Stripe(
+  //     this.configService.get<string>('STRIPE_SECRET_KEY'),
+  //     {
+  //       apiVersion: '2025-03-31.basil',
+  //     },
+  //   );
+  //   this.baseUrl =
+  //     this.configService.get<string>('EXPOSURE_FRONTEND') ||
+  //     'http://localhost:3000';
   }
 
   async createCheckoutSession(plan: 'trust' | 'single') {
