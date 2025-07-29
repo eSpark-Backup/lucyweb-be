@@ -1,0 +1,6 @@
+export enum PostType {
+  INSTAGRAM_POST,
+  PRESS_RELEASE,
+  FACEBOOK_POST,
+  NEWSLETTER,
+}
