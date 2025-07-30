@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Content, Event, Prisma } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -17,9 +21,10 @@ export class EventService {
   async getEventCountByDay(
     year: number,
     month: number,
+    userId: number,
   ): Promise<{ date: string; count: number }[]> {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 1));
 
     const events = await this.prisma.event.groupBy({
       by: ['date_time'],
@@ -28,6 +33,7 @@ export class EventService {
           gte: startDate,
           lt: endDate,
         },
+        user_id: userId,
       },
       _count: {
         id: true,
@@ -40,10 +46,23 @@ export class EventService {
     }));
   }
 
-  async getEventsByDay(date: string): Promise<Event[]> {
-    const startDate = new Date(date);
-    const endDate = new Date(date);
-    endDate.setDate(endDate.getDate() + 1);
+  async getEventsByDay(date: string, userId: number): Promise<Event[]> {
+    const parsed = new Date(date); // '2025-06-29' → 2025-06-29T00:00:00.000Z
+
+    const startDate = new Date(
+      Date.UTC(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate(),
+      ),
+    );
+    const endDate = new Date(
+      Date.UTC(
+        parsed.getUTCFullYear(),
+        parsed.getUTCMonth(),
+        parsed.getUTCDate() + 1,
+      ),
+    );
 
     return this.prisma.event.findMany({
       where: {
@@ -51,6 +70,7 @@ export class EventService {
           gte: startDate,
           lt: endDate,
         },
+        user_id: userId,
       },
       include: {
         contents: true,
@@ -80,10 +100,19 @@ export class EventService {
       throw new Error('User not found. Please check the userId.');
     }
 
+    const fixedTimeSpan =
+      typeof data?.time_span === 'string'
+        ? parseInt(data?.time_span)
+        : data?.time_span;
+    if (isNaN(fixedTimeSpan)) {
+      throw new BadRequestException('Invalid time_span: must be a number.');
+    }
+
     // Create the event with the provided userId
     return this.prisma.event.create({
       data: {
         ...data,
+        time_span: fixedTimeSpan,
         user: {
           connect: { id: userId },
         },
@@ -160,6 +189,7 @@ export class EventService {
   async createContent(
     eventId: number,
     data: CreateContentDto,
+    userId: number,
   ): Promise<Content> {
     // Check if the event exists
     const eventExists = await this.prisma.event.findUnique({
@@ -191,6 +221,7 @@ export class EventService {
               create: content_recipients.map((recipient) => ({
                 recipient, // Assuming recipient is directly the identifier
                 method_id: postMethod.id, // Link to the found PostMethod ID
+                user_id: userId,
               })),
             }
           : {}, // If no recipients are provided, create content without them
@@ -231,6 +262,7 @@ export class EventService {
     id: number,
     eventId: number,
     data: UpdateContentDto,
+    userId: number,
   ): Promise<Content> {
     // Ensure event exists
     const eventExists = await this.prisma.event.findUnique({
@@ -261,8 +293,9 @@ export class EventService {
                 }
 
                 return {
-                  recipient, // The recipient identifier
-                  method_id: postMethod.id, // Link to the found PostMethod ID
+                  recipient,
+                  user: { connect: { id: userId } },
+                  post_method: { connect: { id: postMethod.id } },
                 };
               }),
             ),
@@ -344,4 +377,23 @@ export class EventService {
 
     await this.emailService.sendEmail(userEmail, emailSubject, emailBody);
   }
+
+async getAllUniqueRecipientsByUser(userId: number): Promise<string[]> {
+  const recipients = await this.prisma.contentRecipient.findMany({
+    where: {
+      user_id: userId,
+    },
+    distinct: ['recipient'],
+    select: {
+      recipient: true,
+    },
+    orderBy: {
+      created_at: 'desc',
+    },
+  });
+
+  return recipients.map(r => r.recipient);
+}
+
+
 }
