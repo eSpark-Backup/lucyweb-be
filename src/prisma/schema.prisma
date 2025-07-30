@@ -16,6 +16,7 @@ model User {
   events     Event[]
   profile    Profile?
   questions  Question[] @relation("CreatedQuestions") // Relation for questions created by this user
+  contentRecipients ContentRecipient[]
 }
 
 model Profile {
@@ -88,12 +89,14 @@ model PostMethod {
 
 model ContentRecipient {
   id          Int         @id @default(autoincrement())
+  user_id   Int
+  user      User    @relation(fields: [user_id], references: [id])
   content_id  Int?
   recipient   String
   method_id   Int
   created_at  DateTime    @default(now())
   content     Content?    @relation(fields: [content_id], references: [id])
-  post_method PostMethod  @relation(fields: [method_id], references: [id])
+  post_method PostMethod  @relation(fields: [method_id], references: [id]) 
 }
 
 model Question {

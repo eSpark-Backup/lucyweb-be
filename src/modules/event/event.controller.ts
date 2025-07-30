@@ -11,6 +11,7 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 import { EventService } from './event.service';
@@ -28,19 +29,23 @@ export class EventController {
   @Get('count-by-day')
   @Roles(Role.USER, Role.ADMIN)
   async getEventCountByDay(
+    @Req() req,
     @Query('year') year: string,
     @Query('month') month: string,
   ) {
+    const userId = req.user.id;
     return this.eventsService.getEventCountByDay(
       parseInt(year),
       parseInt(month),
+      userId,
     );
   }
 
   @Get('by-day')
   @Roles(Role.USER, Role.ADMIN)
-  async getEventsByDay(@Query('date') date: string) {
-    return this.eventsService.getEventsByDay(date);
+  async getEventsByDay(@Req() req, @Query('date') date: string) {
+    const userId = req.user.id;
+    return this.eventsService.getEventsByDay(date, userId);
   }
 
   @Get(':id')
@@ -82,20 +87,31 @@ export class EventController {
   @Post(':eventId/contents')
   @Roles(Role.USER, Role.ADMIN)
   async createContent(
+    @Req() req,
     @Param('eventId') eventId: number,
     @Body() createContentDto: CreateContentDto,
   ): Promise<Content> {
-    return this.eventsService.createContent(eventId, createContentDto);
+    return this.eventsService.createContent(
+      eventId,
+      createContentDto,
+      req.user.id,
+    );
   }
 
   @Put(':eventId/contents/:id')
   @Roles(Role.USER, Role.ADMIN)
   async updateContent(
+    @Req() req,
     @Param('id') id: number,
     @Param('eventId') eventId: number,
     @Body() updateContentDto: UpdateContentDto,
   ): Promise<Content> {
-    return this.eventsService.updateContent(id, eventId, updateContentDto);
+    return this.eventsService.updateContent(
+      id,
+      eventId,
+      updateContentDto,
+      req.user.id,
+    );
   }
 
   @Delete(':eventId/contents/:id')
@@ -133,4 +149,12 @@ export class EventController {
     const userEmail = req.user.email;
     return this.eventsService.emailContent(eventId, contentId, userEmail);
   }
+
+@Get('content-recipients/me')
+@Roles(Role.USER, Role.ADMIN)
+async getMyRecipients(@Req() req) {
+  const userId = req.user.id;
+  return this.eventsService.getAllUniqueRecipientsByUser(userId);
+}
+
 }
