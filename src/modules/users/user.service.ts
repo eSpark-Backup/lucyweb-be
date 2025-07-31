@@ -3,11 +3,14 @@ import {
   ConflictException,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UserRegisterDto } from 'src/common/dto/userRegistrationDto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { EmailService } from '../email/email.service';
+import { User } from '@prisma/client';
 
 export interface UpdateRoleDto {
   role: number;
@@ -18,6 +21,7 @@ export class UserService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly emailService: EmailService,
   ) {}
 
   async registerUser(
@@ -35,10 +39,19 @@ export class UserService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Generate verification token and expiration time
+    const verificationToken = this.emailService.generateVerificationToken();
+    const verificationExpires = new Date();
+    verificationExpires.setHours(verificationExpires.getHours() + 24);
+
+    // Create user and profile
     await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
+        email_verified: false,
+        email_verification_token: verificationToken,
+        email_verification_expires: verificationExpires,
         profile: {
           create: {
             first_name,
@@ -49,7 +62,116 @@ export class UserService {
       },
     });
 
-    return { message: 'User registered successfully' };
+    // Send verification email
+    await this.emailService.sendVerificationEmail(
+      email,
+      verificationToken,
+      first_name,
+    );
+
+    return {
+      message:
+        'Registration successful! Please check your email to verify your account.',
+    };
+  }
+
+  // Verify email method
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    if (!token) {
+      throw new BadRequestException('Verification token is required');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email_verification_token: token },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    // Check if token is expired
+    if (
+      user.email_verification_expires &&
+      user.email_verification_expires < new Date()
+    ) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    // Check if already verified
+    if (user.email_verified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Update user as verified
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email_verified: true,
+        email_verification_token: null,
+        email_verification_expires: null,
+      },
+    });
+
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(
+      user.email,
+      user.profile?.first_name,
+    );
+
+    return {
+      message: 'Email verified successfully! Welcome to our platform.',
+    };
+  }
+
+  // Resend verification email
+  async resendVerificationEmail(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.email_verified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Generate new verification token
+    const verificationToken = this.emailService.generateVerificationToken();
+    const verificationExpires = new Date();
+    verificationExpires.setHours(verificationExpires.getHours() + 24);
+
+    // Update user with new token
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email_verification_token: verificationToken,
+        email_verification_expires: verificationExpires,
+      },
+    });
+
+    // Send verification email
+    await this.emailService.sendVerificationEmail(
+      email,
+      verificationToken,
+      user.profile?.first_name,
+    );
+
+    return {
+      message: 'Verification email sent! Please check your email.',
+    };
+  }
+
+  async findUserByEmail(email: string): Promise<User | null> {
+    return await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        profile: true,
+      },
+    });
   }
 
   async getUserProfile(email: string) {
