@@ -25,6 +25,7 @@ model Profile {
   first_name      String
   last_name       String
   phone           String?
+  profile_image   String? 
   organization_id Int?
   role_id         Int           @default(4)
   organization    Organization? @relation(fields: [organization_id], references: [id])

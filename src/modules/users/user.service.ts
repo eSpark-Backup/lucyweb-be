@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { UserRegisterDto } from 'src/common/dto/userRegistrationDto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 
 export interface UpdateRoleDto {
   role: number;
@@ -14,7 +15,10 @@ export interface UpdateRoleDto {
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   async registerUser(
     userRegisterDto: UserRegisterDto,
@@ -48,43 +52,45 @@ export class UserService {
     return { message: 'User registered successfully' };
   }
 
- async getUserProfile(email: string) {
-  const user = await this.prisma.user.findUnique({
-    where: { email },
-    include: {
-      profile: {
-        include: {
-          organization: true,
-          role: true,
+  async getUserProfile(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        profile: {
+          include: {
+            organization: true,
+            role: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!user || !user.profile) {
-    throw new NotFoundException('User or profile not found');
+    if (!user || !user.profile) {
+      throw new NotFoundException('User or profile not found');
+    }
+
+    return {
+      email: user.email,
+      first_name: user.profile.first_name,
+      last_name: user.profile.last_name,
+      fullName: `${user.profile?.first_name} ${user.profile?.last_name}`,
+
+      phone: user.profile.phone,
+      profile_image: user.profile.profile_image,
+      role: user.profile.role?.name,
+      organization: user.profile.organization
+        ? {
+            name: user.profile.organization.name,
+            address: user.profile.organization.address,
+            subscriptionStatus: user.profile.organization.subscription_status,
+          }
+        : null,
+    };
   }
-
-  return {
-    email: user.email,
-    first_name: user.profile.first_name,
-    last_name: user.profile.last_name,
-    phone: user.profile.phone,
-    role: user.profile.role?.name,
-    organization: user.profile.organization
-      ? {
-          name: user.profile.organization.name,
-          address: user.profile.organization.address,
-          subscriptionStatus:
-            user.profile.organization.subscription_status,
-        }
-      : null,
-  };
-}
 
   async getUserById(userId: number, requester: any): Promise<any> {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: Number(userId) },
       include: {
         profile: {
           include: {
@@ -116,8 +122,11 @@ export class UserService {
   }
 
   async updateUserById(userId: number, updateData: any, requester: any) {
+    const idAsNumber = Number(userId);
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: idAsNumber,
+      },
       include: {
         profile: {
           include: {
@@ -246,6 +255,40 @@ export class UserService {
 
     return {
       message: `Successfully updated role for user ${email} with new role ${roleExists.name}`,
+    };
+  }
+
+  async updateUserProfile(
+    userId: number,
+    updateData: any,
+    file?: Express.Multer.File,
+  ): Promise<any> {
+    if ('email' in updateData) {
+      delete updateData.email;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (file) {
+      const imageUrl = await this.storageService.uploadFile(file);
+      updateData.profile_image = imageUrl;
+    }
+
+    const updated = await this.prisma.profile.update({
+      where: { user_id: userId },
+      data: updateData,
+    });
+
+    return {
+      message: 'Profile updated successfully',
+      updated,
     };
   }
 }
