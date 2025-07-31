@@ -48,37 +48,39 @@ export class UserService {
     return { message: 'User registered successfully' };
   }
 
-  async getUserProfile(email: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: {
-        profile: {
-          include: {
-            organization: true,
-            role: true,
-          },
+ async getUserProfile(email: string) {
+  const user = await this.prisma.user.findUnique({
+    where: { email },
+    include: {
+      profile: {
+        include: {
+          organization: true,
+          role: true,
         },
       },
-    });
+    },
+  });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return {
-      email: user.email,
-      fullName: `${user.profile?.first_name} ${user.profile?.last_name}`,
-      phone: user.profile?.phone,
-      role: user.profile?.role?.name,
-      organization: user.profile?.organization
-        ? {
-            name: user.profile.organization.name,
-            address: user.profile.organization.address,
-            subscriptionStatus: user.profile.organization.subscription_status,
-          }
-        : null,
-    };
+  if (!user || !user.profile) {
+    throw new NotFoundException('User or profile not found');
   }
+
+  return {
+    email: user.email,
+    first_name: user.profile.first_name,
+    last_name: user.profile.last_name,
+    phone: user.profile.phone,
+    role: user.profile.role?.name,
+    organization: user.profile.organization
+      ? {
+          name: user.profile.organization.name,
+          address: user.profile.organization.address,
+          subscriptionStatus:
+            user.profile.organization.subscription_status,
+        }
+      : null,
+  };
+}
 
   async getUserById(userId: number, requester: any): Promise<any> {
     const user = await this.prisma.user.findUnique({
