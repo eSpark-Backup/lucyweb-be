@@ -8,6 +8,8 @@ import {
   Param,
   Patch,
   Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { UpdateRoleDto, UserService } from './user.service';
 import { UserRegisterDto } from 'src/common/dto/userRegistrationDto';
@@ -15,6 +17,7 @@ import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { RolesGuard } from 'src/common/guard/roles.guard';
 import { Role } from 'src/common/schema/roles.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('/users')
 export class UserController {
@@ -34,6 +37,18 @@ export class UserController {
     return this.userService.getUserProfile(email);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch('/me')
+  @UseInterceptors(FileInterceptor('profile_image'))
+  async updateProfileInfo(
+    @Request() req,
+    @Body() updateData: any,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<any> {
+    const userId = req.user.id;
+    return this.userService.updateUserProfile(userId, updateData, file);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('/:id')
   async getUserById(@Request() req, @Param('id') userId: number): Promise<any> {
@@ -46,11 +61,11 @@ export class UserController {
   @Patch('/:id')
   async updateUserById(
     @Request() req,
-    @Param('id') userId: number,
+    @Param('id') id: string,
     @Body() updateData: any,
   ): Promise<any> {
     const requester = req.user;
-    return this.userService.updateUserById(userId, updateData, requester);
+    return this.userService.updateUserById(Number(id), updateData, requester);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
