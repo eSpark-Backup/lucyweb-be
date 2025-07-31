@@ -48,6 +48,13 @@ export class EventController {
     return this.eventsService.getEventsByDay(date, userId);
   }
 
+  @Get('me')
+  @Roles(Role.USER, Role.ADMIN)
+  async getMyEvents(@Req() req) {
+    const userId = req.user.id;
+    return this.eventsService.getAllEventsByUserId(userId);
+  }
+
   @Get(':id')
   @Roles(Role.USER, Role.ADMIN)
   async getEventById(@Param('id') id: string) {
@@ -150,11 +157,10 @@ export class EventController {
     return this.eventsService.emailContent(eventId, contentId, userEmail);
   }
 
-@Get('content-recipients/me')
-@Roles(Role.USER, Role.ADMIN)
-async getMyRecipients(@Req() req) {
-  const userId = req.user.id;
-  return this.eventsService.getAllUniqueRecipientsByUser(userId);
-}
-
+  @Get('content-recipients/me')
+  @Roles(Role.USER, Role.ADMIN)
+  async getMyRecipients(@Req() req) {
+    const userId = req.user.id;
+    return this.eventsService.getAllUniqueRecipientsByUser(userId);
+  }
 }
