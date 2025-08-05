@@ -8,6 +8,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AdminModule } from './modules/users/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { TrustModule } from './modules/trust/trust.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PaymentModule } from './modules/payment/payment.module';
     AiModule,
     AdminModule,
     PaymentModule,
+    TrustModule,
   ],
   controllers: [],
   providers: [PrismaService],

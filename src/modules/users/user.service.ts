@@ -26,8 +26,22 @@ export class UserService {
 
   async registerUser(
     userRegisterDto: UserRegisterDto,
+    trustIdFromJWT?: number,
   ): Promise<{ message: string }> {
-    const { email, password, first_name, last_name, phone } = userRegisterDto;
+    const {
+      email,
+      password,
+      first_name,
+      last_name,
+      phone,
+      role,
+      school_name,
+      school_type,
+      school_city,
+      school_region,
+      school_country,
+      school_user_position,
+    } = userRegisterDto;
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -44,6 +58,19 @@ export class UserService {
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
 
+    // Look up role ID from roles table
+    const userRole = await this.prisma.role.findUnique({
+      where: { name: role ?? 'User' },
+    });
+
+    if (!userRole) {
+      throw new BadRequestException(`Invalid role: ${role}`);
+    }
+
+    if (trustIdFromJWT && role?.toUpperCase() === 'TRUST') {
+      throw new BadRequestException('Trust cannot be created with parent');
+    }
+
     // Create user and profile
     await this.prisma.user.create({
       data: {
@@ -52,22 +79,51 @@ export class UserService {
         email_verified: false,
         email_verification_token: verificationToken,
         email_verification_expires: verificationExpires,
+        // ✅ Use connect if trustIdFromJWT is available
+        ...(role?.toUpperCase() !== 'TRUST' && trustIdFromJWT
+          ? { trust: { connect: { id: trustIdFromJWT } } }
+          : {}),
+
+        role: { connect: { id: userRole.id } }, // ✅ good
         profile: {
           create: {
             first_name,
             last_name,
             phone,
+            role_id: userRole.id,
+            school_name:
+              role?.toUpperCase() !== 'TRUST' ? school_name : undefined,
+            school_type:
+              role?.toUpperCase() !== 'TRUST' ? school_type : undefined,
+            school_city:
+              role?.toUpperCase() !== 'TRUST' ? school_city : undefined,
+            school_region:
+              role?.toUpperCase() !== 'TRUST' ? school_region : undefined,
+            school_country:
+              role?.toUpperCase() !== 'TRUST' ? school_country : undefined,
+            school_user_position:
+              role?.toUpperCase() !== 'TRUST'
+                ? school_user_position
+                : undefined,
           },
         },
       },
     });
 
-    // Send verification email
-    await this.emailService.sendVerificationEmail(
-      email,
-      verificationToken,
-      first_name,
-    );
+    // Send verification email with different content based on role
+    if (role?.toUpperCase() === 'TRUST') {
+      await this.emailService.sendVerificationEmailForTrust(
+        email,
+        verificationToken,
+        first_name,
+      );
+    } else {
+      await this.emailService.sendVerificationEmail(
+        email,
+        verificationToken,
+        first_name,
+      );
+    }
 
     return {
       message:

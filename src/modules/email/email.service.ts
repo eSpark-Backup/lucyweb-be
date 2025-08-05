@@ -36,6 +36,73 @@ export class EmailService {
     await this.sendEmail(email, subject, body);
   }
 
+  async sendVerificationEmailForTrust(
+    email: string,
+    token: string,
+    firstName?: string,
+  ): Promise<void> {
+    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+
+    const subject = 'Verify Your Trust Account';
+    const body = this.createVerificationEmailBodyForTrust(
+      verificationUrl,
+      firstName,
+    );
+
+    await this.sendEmail(email, subject, body);
+  }
+
+  createVerificationEmailBodyForTrust(
+    verificationUrl: string,
+    firstName?: string,
+  ): string {
+    return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #4A90E2; margin-bottom: 10px;">Trust Email Verification</h1>
+        <p style="color: #666; font-size: 16px;">Please verify your Trust account to manage and onboard schools.</p>
+      </div>
+      
+      <div style="background-color: #f9f9f9; padding: 25px; border-radius: 8px; margin: 20px 0;">
+        ${firstName ? `<p style="font-size: 16px; margin-bottom: 15px;">Hello ${firstName},</p>` : ''}
+        
+        <p style="font-size: 16px; line-height: 1.6; color: #333;">
+          Thank you for registering your Trust with us! To activate your account and begin adding schools, 
+          please click the button below to verify your email address.
+        </p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${verificationUrl}" 
+             style="background-color: #4A90E2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
+            Verify Trust Account
+          </a>
+        </div>
+        
+        <p style="font-size: 14px; color: #666; line-height: 1.5;">
+          If the button above doesn't work, you can copy and paste this link into your browser:
+          <br>
+          <a href="${verificationUrl}" style="color: #4A90E2; word-break: break-all;">${verificationUrl}</a>
+        </p>
+        
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+          <p style="font-size: 14px; color: #999; margin: 0;">
+            This verification link will expire in 24 hours for security reasons.
+            <br>
+            If you didn’t register a Trust account with us, you can ignore this message.
+          </p>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+        <p style="font-size: 14px; color: #999;">
+          Best regards,<br>
+          The ${process.env.APP_NAME || 'Our'} Team
+        </p>
+      </div>
+    </div>
+  `;
+  }
+
   // Send welcome email after verification
   async sendWelcomeEmail(email: string, firstName?: string): Promise<void> {
     const subject = 'Welcome! Your email has been verified';
@@ -43,7 +110,7 @@ export class EmailService {
 
     await this.sendEmail(email, subject, body);
   }
-  
+
   // Create verification email template
   createVerificationEmailBody(
     verificationUrl: string,

@@ -25,4 +25,32 @@ export class UserRegisterDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  role: string;
+
+  @IsOptional()
+  @IsString()
+  school_name?: string;
+
+  @IsOptional()
+  @IsString()
+  school_type?: string;
+
+  @IsOptional()
+  @IsString()
+  school_city?: string;
+
+  @IsOptional()
+  @IsString()
+  school_region?: string;
+
+  @IsOptional()
+  @IsString()
+  school_country?: string;
+
+  @IsOptional()
+  @IsString()
+  school_user_position?: string; 
 }

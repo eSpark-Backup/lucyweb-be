@@ -8,32 +8,46 @@ datasource db {
 }
 
 model User {
-  id         Int       @id @default(autoincrement())
-  email      String    @unique
-  password   String
-  email_verified        Boolean   @default(false)
-  email_verification_token String? @unique
+  id                         Int       @id @default(autoincrement())
+  email                      String    @unique
+  password                   String
+  email_verified             Boolean   @default(false)
+  email_verification_token   String?   @unique
   email_verification_expires DateTime?
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  events     Event[]
-  profile    Profile?
-  questions  Question[] @relation("CreatedQuestions") // Relation for questions created by this user
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+  role_id                    Int?
+  role                       Role?      @relation(fields: [role_id], references: [id])
+  profile                    Profile?
+  // Self-referencing relation: if user is a SCHOOL created by a TRUST
+  trust_id                   Int?
+  trust                      User?     @relation("TrustSchools", fields: [trust_id], references: [id])
+  schools                    User[]    @relation("TrustSchools") // For TRUST users: list of created SCHOOL users
+
+  // Other relationships
+  events            Event[]
+  questions         Question[]         @relation("CreatedQuestions")
   contentRecipients ContentRecipient[]
 }
 
 model Profile {
-  id              Int           @id @default(autoincrement())
-  user_id         Int           @unique
-  first_name      String
-  last_name       String
-  phone           String?
-  profile_image   String? 
-  organization_id Int?
+  id                   Int           @id @default(autoincrement())
+  user_id              Int           @unique
+  first_name           String
+  last_name            String
+  phone                String?
+  profile_image        String?
+  organization_id      Int?
   role_id         Int           @default(4)
-  organization    Organization? @relation(fields: [organization_id], references: [id])
+  school_name          String?
+  school_type          String?
+  school_city          String?
+  school_region        String?
+  school_country       String?
+  school_user_position String?
   role            Role          @relation(fields: [role_id], references: [id])
-  user            User          @relation(fields: [user_id], references: [id])
+  organization         Organization? @relation(fields: [organization_id], references: [id])
+  user                 User          @relation(fields: [user_id], references: [id])
 }
 
 model Organization {
@@ -56,8 +70,9 @@ model Subscription {
 }
 
 model Role {
-  id       Int       @id @default(autoincrement())
-  name     String    @unique
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
   profiles Profile[]
 }
 
@@ -74,12 +89,12 @@ model Event {
 }
 
 model Content {
-  id                 Int                    @id @default(autoincrement())
+  id                 Int                @id @default(autoincrement())
   event_id           Int
   content_type       String
   text_content       String
   attachment         String?
-  event              Event                  @relation(fields: [event_id], references: [id])
+  event              Event              @relation(fields: [event_id], references: [id])
   content_recipients ContentRecipient[]
 }
 
@@ -92,43 +107,44 @@ model PostMethod {
 }
 
 model ContentRecipient {
-  id          Int         @id @default(autoincrement())
-  user_id   Int
-  user      User    @relation(fields: [user_id], references: [id])
+  id          Int        @id @default(autoincrement())
+  user_id     Int
+  user        User       @relation(fields: [user_id], references: [id])
   content_id  Int?
   recipient   String
   method_id   Int
-  created_at  DateTime    @default(now())
-  content     Content?    @relation(fields: [content_id], references: [id])
-  post_method PostMethod  @relation(fields: [method_id], references: [id]) 
+  created_at  DateTime   @default(now())
+  content     Content?   @relation(fields: [content_id], references: [id])
+  post_method PostMethod @relation(fields: [method_id], references: [id])
 }
 
 model Question {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   text          String
   question_type String
   options       Json?
-  is_archived   Boolean   @default(false)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  created_by    Int       // Foreign key to User who created the question
-  creator       User      @relation("CreatedQuestions", fields: [created_by], references: [id])
+  is_archived   Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  created_by    Int // Foreign key to User who created the question
+  creator       User     @relation("CreatedQuestions", fields: [created_by], references: [id])
   answers       Answer[]
 }
 
 model Response {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   email        String
-  submitted_at DateTime  @default(now())
+  submitted_at DateTime @default(now())
   answers      Answer[]
 }
 
 model Answer {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   question_id Int
   response_id Int
   answer_text String
-  question    Question  @relation(fields: [question_id], references: [id])
-  response    Response  @relation(fields: [response_id], references: [id])
-  @@unique([response_id, question_id]) 
+  question    Question @relation(fields: [question_id], references: [id])
+  response    Response @relation(fields: [response_id], references: [id])
+
+  @@unique([response_id, question_id])
 }
