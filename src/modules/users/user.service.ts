@@ -57,6 +57,9 @@ export class UserService {
             first_name,
             last_name,
             phone,
+            role: {
+              connect: { id: 4 }, 
+            },
           },
         },
       },
