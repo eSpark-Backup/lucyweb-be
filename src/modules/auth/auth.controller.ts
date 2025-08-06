@@ -8,9 +8,7 @@ import {
 } from '@nestjs/common';
 import { UserLoginDto } from 'src/common/dto/userLoginDto';
 import { AuthService } from './auth.service';
-import {
-  ResendVerificationDto,
-} from 'src/common/dto/emailVerificationDto';
+import { ResendVerificationDto } from 'src/common/dto/emailVerificationDto';
 import { UserService } from '../users/user.service';
 
 @Controller('/auth')
@@ -20,10 +18,10 @@ export class AuthController {
     private readonly userService: UserService,
   ) {}
 
-  @Post('/sign-in')
+@Post('/sign-in')
   async login(
     @Body() userLoginDto: UserLoginDto,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<{ accessToken?: string; email_verified?: boolean }> {
     return this.authService.userSignIn(userLoginDto);
   }
 
