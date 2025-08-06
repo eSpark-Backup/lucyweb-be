@@ -378,22 +378,27 @@ export class EventService {
     await this.emailService.sendEmail(userEmail, emailSubject, emailBody);
   }
 
-async getAllUniqueRecipientsByUser(userId: number): Promise<string[]> {
-  const recipients = await this.prisma.contentRecipient.findMany({
-    where: {
-      user_id: userId,
-    },
-    distinct: ['recipient'],
-    select: {
-      recipient: true,
-    },
-    orderBy: {
-      created_at: 'desc',
-    },
-  });
+  async getAllUniqueRecipientsByUser(userId: number): Promise<string[]> {
+    const recipients = await this.prisma.contentRecipient.findMany({
+      where: {
+        user_id: userId,
+      },
+      distinct: ['recipient'],
+      select: {
+        recipient: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
 
-  return recipients.map(r => r.recipient);
-}
+    return recipients.map((r) => r.recipient);
+  }
 
-
+  async getAllEventsByUserId(userId: number) {
+    return this.prisma.event.findMany({
+      where: { user_id: userId },
+      orderBy: { date_time: 'desc' },
+    });
+  }
 }
