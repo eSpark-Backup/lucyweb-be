@@ -12,7 +12,7 @@ async function bootstrap() {
   const globalPrefix = process.env.APP_VERSION ?? 'dev/api/v1';
   app.setGlobalPrefix(globalPrefix);
   app.enableCors({
-    origin: "http://localhost:8080",
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
