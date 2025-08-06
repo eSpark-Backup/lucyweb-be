@@ -11,9 +11,19 @@ async function bootstrap() {
   // Set global prefix
   const globalPrefix = process.env.APP_VERSION ?? 'dev/api/v1';
   app.setGlobalPrefix(globalPrefix);
-
+  const rawCorsOrigins = process.env.CORS_ORIGIN || '';
+  const allowedOrigins = rawCorsOrigins
+    .split(',')
+    .map((origin) => origin.trim());
   app.enableCors({
-    origin: process.env.CORS_ORIGINS,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
