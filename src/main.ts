@@ -11,9 +11,8 @@ async function bootstrap() {
   // Set global prefix
   const globalPrefix = process.env.APP_VERSION ?? 'dev/api/v1';
   app.setGlobalPrefix(globalPrefix);
-
   app.enableCors({
-    origin: process.env.EXPOSURE_FRONTEND ?? 'http://localhost:3000',
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
