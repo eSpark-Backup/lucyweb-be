@@ -1,41 +1,72 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { UserLoginDto } from 'src/common/dto/userLoginDto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService, // Inject the JwtService
+    private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
-  async userSignIn(loginDto: UserLoginDto): Promise<{ accessToken: string }> {
+  async userSignIn(
+    loginDto: UserLoginDto,
+  ): Promise<{ accessToken?: string; email_verified?: boolean }> {
     const { email, password } = loginDto;
 
-    // Find the user along with their profile information
+    this.logger.log(`Login attempt for email: ${email}`);
+
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
         profile: {
-          include: { role: true }, // Fetch the role through the profile
+          include: { role: true },
         },
       },
     });
 
     if (!user) {
+      this.logger.warn(`Login failed: No user found with email ${email}`);
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Validate the password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+      this.logger.warn(`Login failed: Incorrect password for email ${email}`);
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Generate JWT token
-    // TODO: Need to implement refresh token in the future
+    if (!user.email_verified) {
+      this.logger.warn(`Email not verified for user: ${email}`);
+
+      const verificationToken = this.emailService.generateVerificationToken();
+      const verificationExpires = new Date();
+      verificationExpires.setHours(verificationExpires.getHours() + 24);
+
+      await this.prisma.user.update({
+        where: { email },
+        data: {
+          email_verification_token: verificationToken,
+          email_verification_expires: verificationExpires,
+        },
+      });
+
+      await this.emailService.sendVerificationEmail(
+        user.email,
+        verificationToken,
+        user.profile?.first_name,
+      );
+
+      this.logger.log(`Verification email re-sent to: ${email}`);
+      return { email_verified: false };
+    }
+
     const payload = {
       id: user.id,
       email: user.email,
@@ -45,9 +76,11 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '2h', // Token expiration time
+      expiresIn: '2h',
     });
 
-    return { accessToken };
+    this.logger.log(`Login successful for email: ${email}`);
+
+    return { accessToken, email_verified: user.email_verified };
   }
 }
