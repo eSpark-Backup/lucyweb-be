@@ -90,8 +90,8 @@ export class EventService {
   async createEvent(
     data: Prisma.EventCreateInput,
     userId: number,
+    file?: Express.Multer.File,
   ): Promise<Event> {
-    // Check if the user exists
     const userExists = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -104,15 +104,21 @@ export class EventService {
       typeof data?.time_span === 'string'
         ? parseInt(data?.time_span)
         : data?.time_span;
+
     if (isNaN(fixedTimeSpan)) {
       throw new BadRequestException('Invalid time_span: must be a number.');
     }
 
-    // Create the event with the provided userId
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.storageService.uploadFile(file);
+    }
+
     return this.prisma.event.create({
       data: {
         ...data,
         time_span: fixedTimeSpan,
+        image: imageUrl,
         user: {
           connect: { id: userId },
         },
@@ -123,14 +129,41 @@ export class EventService {
     });
   }
 
-  async updateEvent(id: number, data: Prisma.EventUpdateInput): Promise<Event> {
-    const { contents, ...eventData } = data;
+  async updateEvent(
+    id: number,
+    data: Prisma.EventUpdateInput,
+    file?: Express.Multer.File,
+  ): Promise<Event> {
+    let imageUrl: string | undefined;
+
+    if (file) {
+      imageUrl = await this.storageService.uploadFile(file);
+    }
+
+    const { contents, time_span, ...eventData } = data;
+
+    let existingImage = null;
+    if (!file) {
+      const existingEvent = await this.prisma.event.findUnique({
+        where: { id },
+        select: { image: true },
+      });
+      existingImage = existingEvent?.image || null;
+    }
+
+    const updatePayload = {
+      ...eventData,
+      ...(typeof time_span === 'string'
+        ? { time_span: parseInt(time_span, 10) }
+        : { time_span }),
+      image: imageUrl || existingImage,
+    };
 
     return this.prisma.event.update({
       where: { id },
-      data: eventData, // Only update main event fields
+      data: updatePayload,
       include: {
-        contents: true, // Still include contents in the result if needed
+        contents: true,
       },
     });
   }

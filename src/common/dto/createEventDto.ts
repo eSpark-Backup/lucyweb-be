@@ -24,4 +24,12 @@ export class CreateEventDto {
   @IsDateString()
   @IsNotEmpty()
   date_time: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  image?: string; 
 }

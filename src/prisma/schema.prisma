@@ -69,6 +69,7 @@ model Event {
   time_span   Int
   name        String
   type        String?
+  image      String? 
   date_time   DateTime
   description String?
   user_id     Int
