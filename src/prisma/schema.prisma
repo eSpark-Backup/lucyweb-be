@@ -17,6 +17,8 @@ model User {
   created_at DateTime  @default(now())
   updated_at DateTime  @updatedAt
   events     Event[]
+  role_id   Int?
+  role      Role?    @relation(fields: [role_id], references: [id])
   profile    Profile?
   questions  Question[] @relation("CreatedQuestions") // Relation for questions created by this user
   contentRecipients ContentRecipient[]
@@ -59,6 +61,7 @@ model Role {
   id       Int       @id @default(autoincrement())
   name     String    @unique
   profiles Profile[]
+  users User[]
 }
 
 model Event {

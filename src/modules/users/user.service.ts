@@ -27,7 +27,8 @@ export class UserService {
   async registerUser(
     userRegisterDto: UserRegisterDto,
   ): Promise<{ message: string }> {
-    const { email, password, first_name, last_name, phone } = userRegisterDto;
+    const { email, password, first_name, last_name, phone, role } =
+      userRegisterDto;
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -44,7 +45,23 @@ export class UserService {
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
 
-    // Create user and profile
+    let roleId: number;
+
+    if (role) {
+      const roleRecord = await this.prisma.role.findUnique({
+        where: { name: role },
+      });
+
+      if (!roleRecord) {
+        throw new BadRequestException(`Invalid role: ${role}`);
+      }
+
+      roleId = roleRecord.id;
+    } else {
+      roleId = 4;
+    }
+
+    // Create user and associated profile
     await this.prisma.user.create({
       data: {
         email,
@@ -52,13 +69,16 @@ export class UserService {
         email_verified: false,
         email_verification_token: verificationToken,
         email_verification_expires: verificationExpires,
+        role: {
+          connect: { id: roleId },
+        },
         profile: {
           create: {
             first_name,
             last_name,
             phone,
             role: {
-              connect: { id: 4 }, 
+              connect: { id: roleId },
             },
           },
         },
@@ -199,10 +219,11 @@ export class UserService {
       first_name: user.profile.first_name,
       last_name: user.profile.last_name,
       fullName: `${user.profile?.first_name} ${user.profile?.last_name}`,
-
+      email_verified: user?.email_verified,
       phone: user.profile.phone,
       profile_image: user.profile.profile_image,
       role: user.profile.role?.name,
+
       organization: user.profile.organization
         ? {
             name: user.profile.organization.name,
@@ -394,7 +415,7 @@ export class UserService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true },
+      include: { profile: true, role: true },
     });
 
     if (!user) {
@@ -410,10 +431,14 @@ export class UserService {
       where: { user_id: userId },
       data: updateData,
     });
-
+    console.log('user.role?.name', user.role?.name);
     return {
       message: 'Profile updated successfully',
-      updated,
+      updated: {
+        ...updated,
+        email: user.email,
+        role: user.role?.name,
+      },
     };
   }
 }

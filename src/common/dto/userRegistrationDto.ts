@@ -25,4 +25,8 @@ export class UserRegisterDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  role?: string;
 }
