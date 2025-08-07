@@ -8,20 +8,20 @@ datasource db {
 }
 
 model User {
-  id         Int       @id @default(autoincrement())
-  email      String    @unique
-  password   String
-  email_verified        Boolean   @default(false)
-  email_verification_token String? @unique
+  id                         Int                @id @default(autoincrement())
+  email                      String             @unique
+  password                   String
+  created_at                 DateTime           @default(now())
+  updated_at                 DateTime           @updatedAt
   email_verification_expires DateTime?
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  events     Event[]
-  role_id   Int?
-  role      Role?    @relation(fields: [role_id], references: [id])
-  profile    Profile?
-  questions  Question[] @relation("CreatedQuestions") // Relation for questions created by this user
-  contentRecipients ContentRecipient[]
+  email_verification_token   String?            @unique
+  email_verified             Boolean            @default(false)
+  role_id                    Int?
+  contentRecipients          ContentRecipient[]
+  events                     Event[]
+  profile                    Profile?
+  questions                  Question[]         @relation("CreatedQuestions")
+  role                       Role?              @relation(fields: [role_id], references: [id])
 }
 
 model Profile {
@@ -30,8 +30,8 @@ model Profile {
   first_name      String
   last_name       String
   phone           String?
-  profile_image   String? 
   organization_id Int?
+  profile_image   String?
   role_id         Int           @default(4)
   organization    Organization? @relation(fields: [organization_id], references: [id])
   role            Role          @relation(fields: [role_id], references: [id])
@@ -61,7 +61,7 @@ model Role {
   id       Int       @id @default(autoincrement())
   name     String    @unique
   profiles Profile[]
-  users User[]
+  users    User[]
 }
 
 model Event {
@@ -69,21 +69,21 @@ model Event {
   time_span   Int
   name        String
   type        String?
-  image      String? 
   date_time   DateTime
   description String?
   user_id     Int
+  image       String?
   contents    Content[]
   user        User      @relation(fields: [user_id], references: [id])
 }
 
 model Content {
-  id                 Int                    @id @default(autoincrement())
+  id                 Int                @id @default(autoincrement())
   event_id           Int
   content_type       String
   text_content       String
   attachment         String?
-  event              Event                  @relation(fields: [event_id], references: [id])
+  event              Event              @relation(fields: [event_id], references: [id])
   content_recipients ContentRecipient[]
 }
 
@@ -96,43 +96,44 @@ model PostMethod {
 }
 
 model ContentRecipient {
-  id          Int         @id @default(autoincrement())
-  user_id   Int
-  user      User    @relation(fields: [user_id], references: [id])
+  id          Int        @id @default(autoincrement())
   content_id  Int?
   recipient   String
   method_id   Int
-  created_at  DateTime    @default(now())
-  content     Content?    @relation(fields: [content_id], references: [id])
-  post_method PostMethod  @relation(fields: [method_id], references: [id]) 
+  created_at  DateTime   @default(now())
+  user_id     Int
+  content     Content?   @relation(fields: [content_id], references: [id])
+  post_method PostMethod @relation(fields: [method_id], references: [id])
+  user        User       @relation(fields: [user_id], references: [id])
 }
 
 model Question {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   text          String
   question_type String
   options       Json?
-  is_archived   Boolean   @default(false)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  created_by    Int       // Foreign key to User who created the question
-  creator       User      @relation("CreatedQuestions", fields: [created_by], references: [id])
+  is_archived   Boolean  @default(false)
+  created_at    DateTime @default(now())
+  created_by    Int
+  updated_at    DateTime @updatedAt
   answers       Answer[]
+  creator       User     @relation("CreatedQuestions", fields: [created_by], references: [id])
 }
 
 model Response {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   email        String
-  submitted_at DateTime  @default(now())
+  submitted_at DateTime @default(now())
   answers      Answer[]
 }
 
 model Answer {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   question_id Int
   response_id Int
   answer_text String
-  question    Question  @relation(fields: [question_id], references: [id])
-  response    Response  @relation(fields: [response_id], references: [id])
-  @@unique([response_id, question_id]) 
+  question    Question @relation(fields: [question_id], references: [id])
+  response    Response @relation(fields: [response_id], references: [id])
+
+  @@unique([response_id, question_id])
 }
