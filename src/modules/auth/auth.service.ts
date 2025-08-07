@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { UserLoginDto } from 'src/common/dto/userLoginDto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -82,5 +87,70 @@ export class AuthService {
     this.logger.log(`Login successful for email: ${email}`);
 
     return { accessToken, email_verified: user.email_verified };
+  }
+  // Verify email method
+  async verifyEmail(
+    token: string,
+  ): Promise<{ message: string; accessToken: string }> {
+    if (!token) {
+      throw new BadRequestException('Verification token is required');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email_verification_token: token },
+      include: {
+        profile: {
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    if (
+      user.email_verification_expires &&
+      user.email_verification_expires < new Date()
+    ) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    if (user.email_verified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Update user as verified
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email_verified: true,
+        email_verification_token: null,
+        email_verification_expires: null,
+      },
+    });
+
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(
+      user.email,
+      user.profile?.first_name,
+    );
+
+    const payload = {
+      id: user.id,
+      email: user.email,
+      firstName: user.profile?.first_name,
+      lastName: user.profile?.last_name,
+      role: user.profile?.role.name,
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '2h',
+    });
+
+    return {
+      message: 'Email verified successfully! Welcome to our platform.',
+      accessToken,
+    };
   }
 }

@@ -28,7 +28,7 @@ export class EmailService {
     token: string,
     firstName?: string,
   ): Promise<void> {
-    const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+    const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify-email?token=${token}`;
 
     const subject = 'Verify Your Email Address';
     const body = this.createVerificationEmailBody(verificationUrl, firstName);
@@ -43,7 +43,7 @@ export class EmailService {
 
     await this.sendEmail(email, subject, body);
   }
-  
+
   // Create verification email template
   createVerificationEmailBody(
     verificationUrl: string,
