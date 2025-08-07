@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Req,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 import { EventService } from './event.service';
@@ -58,7 +59,13 @@ export class EventController {
   @Get(':id')
   @Roles(Role.USER, Role.ADMIN)
   async getEventById(@Param('id') id: string) {
-    return this.eventsService.getEventById(parseInt(id));
+    const event = await this.eventsService.getEventById(parseInt(id));
+
+    if (!event) {
+      throw new NotFoundException(`Event with ID ${id} not found`);
+    }
+
+    return event;
   }
 
   @Post()
