@@ -11,6 +11,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { User } from '@prisma/client';
+import { JwtService } from '@nestjs/jwt';
 
 export interface UpdateRoleDto {
   role: number;
@@ -22,6 +23,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly emailService: EmailService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async registerUser(
@@ -95,55 +97,6 @@ export class UserService {
     return {
       message:
         'Registration successful! Please check your email to verify your account.',
-    };
-  }
-
-  // Verify email method
-  async verifyEmail(token: string): Promise<{ message: string }> {
-    if (!token) {
-      throw new BadRequestException('Verification token is required');
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { email_verification_token: token },
-      include: { profile: true },
-    });
-
-    if (!user) {
-      throw new BadRequestException('Invalid or expired verification token');
-    }
-
-    // Check if token is expired
-    if (
-      user.email_verification_expires &&
-      user.email_verification_expires < new Date()
-    ) {
-      throw new BadRequestException('Verification token has expired');
-    }
-
-    // Check if already verified
-    if (user.email_verified) {
-      throw new BadRequestException('Email is already verified');
-    }
-
-    // Update user as verified
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        email_verified: true,
-        email_verification_token: null,
-        email_verification_expires: null,
-      },
-    });
-
-    // Send welcome email
-    await this.emailService.sendWelcomeEmail(
-      user.email,
-      user.profile?.first_name,
-    );
-
-    return {
-      message: 'Email verified successfully! Welcome to our platform.',
     };
   }
 
