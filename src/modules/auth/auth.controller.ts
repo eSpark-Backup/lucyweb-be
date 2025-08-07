@@ -18,7 +18,7 @@ export class AuthController {
     private readonly userService: UserService,
   ) {}
 
-@Post('/sign-in')
+  @Post('/sign-in')
   async login(
     @Body() userLoginDto: UserLoginDto,
   ): Promise<{ accessToken?: string; email_verified?: boolean }> {
@@ -28,8 +28,8 @@ export class AuthController {
   @Get('verify-email')
   async verifyEmail(
     @Query('token') token: string,
-  ): Promise<{ message: string }> {
-    return this.userService.verifyEmail(token);
+  ): Promise<{ message: string; accessToken: string }> {
+    return this.authService.verifyEmail(token);
   }
 
   @Post('resend-verification')
