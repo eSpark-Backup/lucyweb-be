@@ -8,7 +8,6 @@ import { StorageModule } from './modules/storage/storage.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AdminModule } from './modules/users/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
-import { SchedulerModule } from './modules/scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -21,7 +20,6 @@ import { SchedulerModule } from './modules/scheduler/scheduler.module';
     AiModule,
     AdminModule,
     PaymentModule,
-    SchedulerModule,
   ],
   controllers: [],
   providers: [PrismaService],
