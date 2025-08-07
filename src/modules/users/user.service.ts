@@ -11,7 +11,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { User } from '@prisma/client';
-import { JwtService } from '@nestjs/jwt';
 
 export interface UpdateRoleDto {
   role: number;
@@ -23,14 +22,12 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
     private readonly emailService: EmailService,
-    private readonly jwtService: JwtService,
   ) {}
 
   async registerUser(
     userRegisterDto: UserRegisterDto,
   ): Promise<{ message: string }> {
-    const { email, password, first_name, last_name, phone, role } =
-      userRegisterDto;
+    const { email, password, first_name, last_name, phone } = userRegisterDto;
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -47,23 +44,7 @@ export class UserService {
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
 
-    let roleId: number;
-
-    if (role) {
-      const roleRecord = await this.prisma.role.findUnique({
-        where: { name: role },
-      });
-
-      if (!roleRecord) {
-        throw new BadRequestException(`Invalid role: ${role}`);
-      }
-
-      roleId = roleRecord.id;
-    } else {
-      roleId = 4;
-    }
-
-    // Create user and associated profile
+    // Create user and profile
     await this.prisma.user.create({
       data: {
         email,
@@ -71,16 +52,13 @@ export class UserService {
         email_verified: false,
         email_verification_token: verificationToken,
         email_verification_expires: verificationExpires,
-        role: {
-          connect: { id: roleId },
-        },
         profile: {
           create: {
             first_name,
             last_name,
             phone,
             role: {
-              connect: { id: roleId },
+              connect: { id: 4 }, 
             },
           },
         },
@@ -97,6 +75,55 @@ export class UserService {
     return {
       message:
         'Registration successful! Please check your email to verify your account.',
+    };
+  }
+
+  // Verify email method
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    if (!token) {
+      throw new BadRequestException('Verification token is required');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email_verification_token: token },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    // Check if token is expired
+    if (
+      user.email_verification_expires &&
+      user.email_verification_expires < new Date()
+    ) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    // Check if already verified
+    if (user.email_verified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Update user as verified
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email_verified: true,
+        email_verification_token: null,
+        email_verification_expires: null,
+      },
+    });
+
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(
+      user.email,
+      user.profile?.first_name,
+    );
+
+    return {
+      message: 'Email verified successfully! Welcome to our platform.',
     };
   }
 
@@ -172,11 +199,10 @@ export class UserService {
       first_name: user.profile.first_name,
       last_name: user.profile.last_name,
       fullName: `${user.profile?.first_name} ${user.profile?.last_name}`,
-      email_verified: user?.email_verified,
+
       phone: user.profile.phone,
       profile_image: user.profile.profile_image,
       role: user.profile.role?.name,
-
       organization: user.profile.organization
         ? {
             name: user.profile.organization.name,
@@ -368,7 +394,7 @@ export class UserService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true, role: true },
+      include: { profile: true },
     });
 
     if (!user) {
@@ -384,14 +410,10 @@ export class UserService {
       where: { user_id: userId },
       data: updateData,
     });
-    console.log('user.role?.name', user.role?.name);
+
     return {
       message: 'Profile updated successfully',
-      updated: {
-        ...updated,
-        email: user.email,
-        role: user.role?.name,
-      },
+      updated,
     };
   }
 }
