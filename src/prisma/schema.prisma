@@ -16,6 +16,8 @@ model User {
   email_verification_expires DateTime?
   email_verification_token   String?            @unique
   email_verified             Boolean            @default(false)
+  password_reset_token     String? @unique
+  password_reset_expires   DateTime?
   role_id                    Int?
   contentRecipients          ContentRecipient[]
   events                     Event[]
