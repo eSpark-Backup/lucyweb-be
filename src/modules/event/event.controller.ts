@@ -63,18 +63,25 @@ export class EventController {
 
   @Post()
   @Roles(Role.USER, Role.ADMIN)
-  async createEvent(@Body() data: Prisma.EventCreateInput, @Request() req) {
+  @UseInterceptors(FileInterceptor('image'))
+  async createEvent(
+    @Body() data: Prisma.EventCreateInput,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
     const userId: number = +req.user.id;
-    return this.eventsService.createEvent(data, userId);
+    return this.eventsService.createEvent(data, userId, file);
   }
 
   @Put(':id')
   @Roles(Role.USER, Role.ADMIN)
+  @UseInterceptors(FileInterceptor('image'))
   async updateEvent(
     @Param('id') id: string,
     @Body() data: Prisma.EventUpdateInput,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.eventsService.updateEvent(parseInt(id), data);
+    return this.eventsService.updateEvent(+id, data, file);
   }
 
   @Delete(':id')
