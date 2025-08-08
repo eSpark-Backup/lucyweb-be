@@ -10,6 +10,8 @@ import { UserLoginDto } from 'src/common/dto/userLoginDto';
 import { AuthService } from './auth.service';
 import { ResendVerificationDto } from 'src/common/dto/emailVerificationDto';
 import { UserService } from '../users/user.service';
+import { ForgotPasswordDto } from 'src/common/dto/forgotPassword.dto';
+import { ResetPasswordDto } from 'src/common/dto/resetPassword.dto';
 
 @Controller('/auth')
 export class AuthController {
@@ -50,5 +52,15 @@ export class AuthController {
     }
 
     return { verified: user.email_verified };
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() { email }: ForgotPasswordDto) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() resetDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetDto.token, resetDto.newPassword);
   }
 }

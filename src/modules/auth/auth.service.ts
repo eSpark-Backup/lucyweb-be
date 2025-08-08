@@ -3,12 +3,15 @@ import {
   UnauthorizedException,
   Logger,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { UserLoginDto } from 'src/common/dto/userLoginDto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../email/email.service';
+
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -152,5 +155,118 @@ export class AuthService {
       message: 'Email verified successfully! Welcome to our platform.',
       accessToken,
     };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const token = randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 1000 * 60 * 60);
+
+    await this.prisma.user.update({
+      where: { email },
+      data: {
+        password_reset_token: token,
+        password_reset_expires: expires,
+      },
+    });
+
+    await this.sendPasswordResetEmail(email, token);
+    return { message: 'Password reset email sent' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { password_reset_token: token },
+    });
+
+    if (
+      !user ||
+      !user.password_reset_expires ||
+      user.password_reset_expires < new Date()
+    ) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashed,
+        password_reset_token: null,
+        password_reset_expires: null,
+      },
+    });
+
+    return { message: 'Password has been reset successfully' };
+  }
+
+  async sendPasswordResetEmail(
+    email: string,
+    token: string,
+    firstName?: string,
+  ): Promise<void> {
+    const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${token}`;
+
+    const subject = 'Reset Your Password';
+    const body = this.createPasswordResetEmailBody(resetUrl, firstName);
+
+    await this.emailService.sendEmail(email, subject, body);
+  }
+
+  private createPasswordResetEmailBody(
+    resetUrl: string,
+    firstName?: string,
+  ): string {
+    return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #4A90E2; margin-bottom: 10px;">Reset Your Password</h1>
+        <p style="color: #666; font-size: 16px;">We received a request to reset your password</p>
+      </div>
+      
+      <div style="background-color: #f9f9f9; padding: 25px; border-radius: 8px; margin: 20px 0;">
+        ${
+          firstName
+            ? `<p style="font-size: 16px; margin-bottom: 15px;">Hi ${firstName},</p>`
+            : ''
+        }
+
+        <p style="font-size: 16px; line-height: 1.6; color: #333;">
+          Someone (hopefully you) requested a password reset for your account. Click the button below to reset your password.
+        </p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}"
+             style="background-color: #4A90E2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
+            Reset Password
+          </a>
+        </div>
+
+        <p style="font-size: 14px; color: #666; line-height: 1.5;">
+          If the button doesn’t work, you can also copy and paste this link into your browser:
+          <br>
+          <a href="${resetUrl}" style="color: #4A90E2; word-break: break-all;">${resetUrl}</a>
+        </p>
+
+        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+          <p style="font-size: 14px; color: #999; margin: 0;">
+            This reset link will expire in 1 hour.
+            <br>
+            If you didn’t request a password reset, you can safely ignore this email.
+          </p>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+        <p style="font-size: 14px; color: #999;">
+          Best regards,<br>
+          The ${process.env.APP_NAME || 'EduPulse'} Team
+        </p>
+      </div>
+    </div>
+  `;
   }
 }
