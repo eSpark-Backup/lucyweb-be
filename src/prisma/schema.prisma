@@ -87,6 +87,8 @@ model Content {
   attachment         String?
   event              Event              @relation(fields: [event_id], references: [id])
   content_recipients ContentRecipient[]
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @default(now()) @updatedAt
 }
 
 model PostMethod {
