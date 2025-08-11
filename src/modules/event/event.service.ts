@@ -100,6 +100,31 @@ export class EventService {
       throw new Error('User not found. Please check the userId.');
     }
 
+    // Validate date_time
+    if (!data.date_time) {
+      throw new BadRequestException('Event date_time is required.');
+    }
+
+    // 1. Parse incoming date_time
+    const eventDate = new Date(data.date_time);
+
+    if (isNaN(eventDate.getTime())) {
+      throw new BadRequestException(
+        'Invalid date_time format. Please send in ISO 8601 format with timezone.',
+      );
+    }
+
+    // 2. Convert to UTC and compare
+    const eventDateUTC = eventDate.getTime(); // UTC timestamp
+    const nowUTC = new Date().getTime(); // current UTC timestamp
+
+    if (eventDateUTC < nowUTC) {
+      throw new BadRequestException(
+        'Cannot create events in the past. Event date and time must be in the future or current time.',
+      );
+    }
+
+    // 3. Validate time_span
     const fixedTimeSpan =
       typeof data?.time_span === 'string'
         ? parseInt(data?.time_span)
@@ -109,11 +134,13 @@ export class EventService {
       throw new BadRequestException('Invalid time_span: must be a number.');
     }
 
+    // 4. Upload image if provided
     let imageUrl: string | undefined;
     if (file) {
       imageUrl = await this.storageService.uploadFile(file);
     }
 
+    // 5. Create event in DB
     return this.prisma.event.create({
       data: {
         ...data,
