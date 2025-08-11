@@ -9,6 +9,7 @@ import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
+import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
 
 @Injectable()
 export class EventService {
@@ -185,7 +186,7 @@ export class EventService {
 
     // Handle image
     let imageUrl: string | undefined;
-    
+
     if (file) {
       imageUrl = await this.storageService.uploadFile(file);
     }
@@ -483,5 +484,37 @@ export class EventService {
       where: { user_id: userId },
       orderBy: { date_time: 'desc' },
     });
+  }
+
+  async sendEmailToRecipients(
+    eventId: number,
+    data: SendReminderEmailDto,
+  ): Promise<{ success: boolean }> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    const { content_recipients, content_type, text_content, attachment } = data;
+
+    if (!content_recipients || content_recipients.length === 0) {
+      throw new BadRequestException('Recipients list cannot be empty');
+    }
+    const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
+    const emailBody = this.emailService.createEmailBody(
+      content_type,
+      text_content,
+      attachment ?? null,
+    );
+
+    await Promise.all(
+      content_recipients.map((recipient) =>
+        this.emailService.sendEmail(recipient, emailSubject, emailBody),
+      ),
+    );
+
+    return { success: true };
   }
 }

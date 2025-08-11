@@ -22,6 +22,9 @@ import { Prisma } from '@prisma/client';
 import { Content } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
+import { ParseIntPipe } from '@nestjs/common';
+
 @Controller('events')
 @UseGuards(JwtAuthGuard)
 export class EventController {
@@ -176,5 +179,13 @@ export class EventController {
   async getMyRecipients(@Req() req) {
     const userId = req.user.id;
     return this.eventsService.getAllUniqueRecipientsByUser(userId);
+  }
+
+  @Post(':eventId/send-email')
+  async sendEmailToRecipients(
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Body() data: SendReminderEmailDto,
+  ) {
+    return this.eventsService.sendEmailToRecipients(eventId, data);
   }
 }
