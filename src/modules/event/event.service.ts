@@ -101,28 +101,27 @@ export class EventService {
     }
 
     // Validate date_time
-    if (!data.date_time) {
-      throw new BadRequestException('Event date_time is required.');
-    }
-
-    // 1. Parse incoming date_time
+    // Parse incoming time with timezone, convert to UTC before storing
     const eventDate = new Date(data.date_time);
 
     if (isNaN(eventDate.getTime())) {
       throw new BadRequestException(
-        'Invalid date_time format. Please send in ISO 8601 format with timezone.',
+        'Invalid date_time format. Please send in ISO 8601 format with timezone (e.g., 2025-08-11T15:00:00Z).',
       );
     }
 
-    // 2. Convert to UTC and compare
-    const eventDateUTC = eventDate.getTime(); // UTC timestamp
-    const nowUTC = new Date().getTime(); // current UTC timestamp
+    // Compare UTC timestamps
+    const eventDateUTC = eventDate.getTime();
+    const nowUTC = Date.now();
 
     if (eventDateUTC < nowUTC) {
       throw new BadRequestException(
         'Cannot create events in the past. Event date and time must be in the future or current time.',
       );
     }
+
+    // Force UTC date storage
+    data.date_time = new Date(eventDateUTC);
 
     // 3. Validate time_span
     const fixedTimeSpan =
@@ -161,8 +160,32 @@ export class EventService {
     data: Prisma.EventUpdateInput,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    let imageUrl: string | undefined;
+    // Validate date_time if present in update payload
+    if (data.date_time) {
+      const eventDate = new Date(data.date_time as string);
 
+      if (isNaN(eventDate.getTime())) {
+        throw new BadRequestException(
+          'Invalid date_time format. Please send in ISO 8601 format with timezone (e.g., 2025-08-11T15:00:00Z).',
+        );
+      }
+
+      const eventDateUTC = eventDate.getTime();
+      const nowUTC = Date.now();
+
+      if (eventDateUTC < nowUTC) {
+        throw new BadRequestException(
+          'Cannot set event date/time in the past. Event date and time must be in the future or current time.',
+        );
+      }
+
+      // Force UTC storage
+      data.date_time = new Date(eventDateUTC);
+    }
+
+    // Handle image
+    let imageUrl: string | undefined;
+    
     if (file) {
       imageUrl = await this.storageService.uploadFile(file);
     }
