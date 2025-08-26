@@ -16,8 +16,8 @@ model User {
   email_verification_expires DateTime?
   email_verification_token   String?            @unique
   email_verified             Boolean            @default(false)
-  password_reset_token     String? @unique
-  password_reset_expires   DateTime?
+  password_reset_token       String?            @unique
+  password_reset_expires     DateTime?
   role_id                    Int?
   contentRecipients          ContentRecipient[]
   events                     Event[]
@@ -40,16 +40,32 @@ model Profile {
   user            User          @relation(fields: [user_id], references: [id])
 }
 
-model Organization {
-  id                  Int           @id @default(autoincrement())
-  name                String
-  address             String
-  subscription_status String?
-  subscription_id     Int?
-  last_purchase       DateTime?
-  subscription        Subscription? @relation(fields: [subscription_id], references: [id])
-  profiles            Profile[]
+model School {
+  id              Int           @id @default(autoincrement())
+  name            String
+  address         String
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  organization_id Int
+  organization    Organization  @relation(fields: [organization_id], references: [id])
 }
+
+model Organization {
+  id                    Int             @id @default(autoincrement())
+  name                  String
+  address               String
+  is_trust              Boolean         @default(false) // distinguish individual vs trust
+  selected_school_count Int?            // for trusts: how many schools they committed to create
+  subscription_status   String?
+  subscription_id       Int?
+  last_purchase         DateTime?
+  subscription          Subscription?   @relation(fields: [subscription_id], references: [id])
+  profiles              Profile[]
+  payments              Payment[]
+  schools               School[]        // 🔥 NEW relation
+}
+
 
 model Subscription {
   id            Int            @id @default(autoincrement())
@@ -57,6 +73,17 @@ model Subscription {
   cost          Float
   validity      Int
   organizations Organization[]
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  organization_id Int
+  amount          Float
+  currency        String        @default("USD")
+  status          String        @default("pending") // pending, success, failed
+  description     String?
+  created_at      DateTime      @default(now())
+  organization    Organization  @relation(fields: [organization_id], references: [id])
 }
 
 model Role {

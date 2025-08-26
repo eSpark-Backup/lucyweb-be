@@ -31,5 +31,5 @@ export class CreateEventDto {
 
   @IsString()
   @IsOptional()
-  image?: string; 
+  image?: string;
 }

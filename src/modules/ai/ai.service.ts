@@ -33,30 +33,30 @@ export class AiService {
     }
   }
 
-private constructPrompt(
-  eventName: string,
-  promptText: string,
-  contentType: string,
-): string {
-  const styleInstruction =
-    'Use British English spelling and a neutral, professional tone.';
-  console.log('Content type received:', contentType); 
+  private constructPrompt(
+    eventName: string,
+    promptText: string,
+    contentType: string,
+  ): string {
+    const styleInstruction =
+      'Use British English spelling and a neutral, professional tone.';
+    console.log('Content type received:', contentType);
 
-  switch (contentType) {
-    case 'press_release':
-      return `${styleInstruction} Write a 3-paragraph, 600-word press release about "${promptText}" for the event titled "${eventName}".`;
-    case 'instagram_post':
-      return `${styleInstruction} Write an Instagram post about "${promptText}" for the event titled "${eventName}".`;
-    case 'facebook_post':
-      return `${styleInstruction} Write a Facebook post about "${promptText}" for the event titled "${eventName}".`;
-    case 'newsletter':
-      return `${styleInstruction} Write a 100-word paragraph about "${promptText}" for the event titled "${eventName}".`;
-     case 'summary':
-      return `${styleInstruction} Write a concise 2-3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
+    switch (contentType) {
+      case 'press_release':
+        return `${styleInstruction} Write a 3-paragraph, 600-word press release about "${promptText}" for the event titled "${eventName}".`;
+      case 'instagram_post':
+        return `${styleInstruction} Write an Instagram post about "${promptText}" for the event titled "${eventName}".`;
+      case 'facebook_post':
+        return `${styleInstruction} Write a Facebook post about "${promptText}" for the event titled "${eventName}".`;
+      case 'newsletter':
+        return `${styleInstruction} Write a 100-word paragraph about "${promptText}" for the event titled "${eventName}".`;
+      case 'summary':
+        return `${styleInstruction} Write a concise 2-3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
       default:
-      throw new Error('Invalid content type');
+        throw new Error('Invalid content type');
+    }
   }
-}
 
   private getMaxTokens(contentType: string): number {
     switch (contentType) {
