@@ -25,9 +25,9 @@ async function bootstrap() {
   const server = app.getHttpAdapter();
   const routes = server
     .getInstance()
-    ._router?.stack?.filter((layer) => layer.route)
+    ._router?.stack?.filter((layer: { route: any }) => layer.route)
     ?.map(
-      (layer) =>
+      (layer: { route: { methods: object; path: any } }) =>
         `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`,
     );
   console.log('Registered routes:', routes);
