@@ -55,15 +55,16 @@ model Organization {
   id                    Int             @id @default(autoincrement())
   name                  String
   address               String
-  is_trust              Boolean         @default(false) // distinguish individual vs trust
-  selected_school_count Int?            // for trusts: how many schools they committed to create
+  is_trust              Boolean         @default(false)
+  selected_school_count Int?            
   subscription_status   String?
   subscription_id       Int?
   last_purchase         DateTime?
   subscription          Subscription?   @relation(fields: [subscription_id], references: [id])
   profiles              Profile[]
   payments              Payment[]
-  schools               School[]        // 🔥 NEW relation
+  trust_locked          Boolean   @default(false)
+  schools               School[]        
 }
 
 
@@ -80,7 +81,7 @@ model Payment {
   organization_id Int
   amount          Float
   currency        String        @default("USD")
-  status          String        @default("pending") // pending, success, failed
+  status          String        @default("pending")
   description     String?
   created_at      DateTime      @default(now())
   organization    Organization  @relation(fields: [organization_id], references: [id])
