@@ -22,9 +22,9 @@ export class OrganizationController {
   @Post('/create')
   async createOrganization(
     @Body() createOrganizationDto: CreateOrganizationDto,
-    @Request() req,
+    @Request() req: any,
   ): Promise<{ message: string }> {
-    const email = req.user.email; // Extract email from the JWT
+    const email = req.user.email;
     return this.organizationService.createOrganization(
       createOrganizationDto,
       email,
@@ -33,20 +33,18 @@ export class OrganizationController {
 
   @UseGuards(JwtAuthGuard)
   @Get('/me')
-  async getOrganizationDetails(@Request() req) {
+  async getOrganizationDetails(@Request() req: any) {
     const { email, role } = req.user;
-    // Fetch organization details for the requesting user's email
     return this.organizationService.getOrganizationDetailsByEmail(email, role);
   }
 
   @UseGuards(JwtAuthGuard)
-  @Roles(Role.ADMIN)
   @Patch('/update')
   async updateOrganization(
     @Body() updateData: { name?: string; address?: string },
     @Request() req: any,
   ): Promise<{ message: string; updatedOrganization: any }> {
-    const email = req.user.email; // Email from decoded token
+    const email = req.user.email;
     return this.organizationService.updateOrganizationDetails(
       email,
       updateData,
@@ -54,14 +52,18 @@ export class OrganizationController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Roles(Role.OWNER, Role.ADMIN, Role.MODERATOR) // Only Admin and Moderator can access this API
+  @Roles(Role.ADMIN, Role.MODERATOR)
   @Get('/users')
   async getOrganizationUsers(
     @Request() req: any,
     @Query('page') page = 1,
     @Query('limit') limit = 10,
   ): Promise<any> {
-    const email = req.user.email; // Email from JWT token
-    return this.organizationService.getUsersByOrganization(email, page, limit);
+    const email = req.user.email;
+    return this.organizationService.getUsersByOrganization(
+      email,
+      Number(page),
+      Number(limit),
+    );
   }
 }
