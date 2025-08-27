@@ -14,7 +14,7 @@ export class SchoolService {
     try {
       const organization = await this.prisma.organization.findUnique({
         where: { id: createSchoolDto.organization_id },
-        include: { schools: true }, // include schools for trust logic
+        include: { schools: true },
       });
 
       if (!organization) {
@@ -29,9 +29,26 @@ export class SchoolService {
         },
       });
 
-      const cost = this.calculateCost(organization);
+      // lock trust once threshold is reached
+      if (
+        organization.is_trust &&
+        !organization.trust_locked &&
+        organization.schools.length + 1 >= organization.selected_school_count
+      ) {
+        await this.prisma.organization.update({
+          where: { id: organization.id },
+          data: { trust_locked: true },
+        });
+      }
 
-      return { ...school, organization, cost };
+      const updatedOrg = await this.prisma.organization.findUnique({
+        where: { id: organization.id },
+        include: { schools: true },
+      });
+
+      const cost = this.calculateCost(updatedOrg);
+
+      return { ...school, organization: updatedOrg, cost };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -80,7 +97,6 @@ export class SchoolService {
     }
 
     const cost = this.calculateCost(school.organization);
-
     return { ...school, cost };
   }
 
@@ -125,6 +141,7 @@ export class SchoolService {
     }
 
     try {
+      // NOTE: trust_locked should never be reverted here
       return await this.prisma.school.delete({ where: { id } });
     } catch (error) {
       console.error(error);
@@ -140,20 +157,11 @@ export class SchoolService {
    */
   private calculateCost(organization: any) {
     if (!organization.is_trust) return 50;
+    if (organization.trust_locked) return 10;
 
     const createdCount = organization.schools?.length ?? 0;
     const selectedCount = organization.selected_school_count ?? 0;
 
-    if (organization.trust_locked) return 10;
-
-    if (createdCount >= selectedCount) {
-      this.prisma.organization.update({
-        where: { id: organization.id },
-        data: { trust_locked: true },
-      });
-      return 10;
-    }
-
-    return 50;
+    return createdCount >= selectedCount ? 10 : 50;
   }
 }
