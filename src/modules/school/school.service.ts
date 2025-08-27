@@ -29,15 +29,9 @@ export class SchoolService {
         },
       });
 
-      // Calculate cost for the newly created school
-      let cost = 50;
-      if (organization.is_trust) {
-        const createdCount = organization.schools.length + 1; // include this new school
-        const selectedCount = organization.selected_school_count ?? 0;
-        cost = createdCount < selectedCount ? 10 : 50;
-      }
+      const cost = this.calculateCost(organization);
 
-      return { ...school, cost };
+      return { ...school, organization, cost };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -48,7 +42,7 @@ export class SchoolService {
   }
 
   /**
-   * Fetch all schools including calculated cost
+   * Fetch all schools with calculated cost
    */
   async findAll() {
     try {
@@ -57,12 +51,7 @@ export class SchoolService {
       });
 
       return schools.map((school) => {
-        let cost = 50;
-        if (school.organization.is_trust) {
-          const createdCount = school.organization.schools.length;
-          const selectedCount = school.organization.selected_school_count ?? 0;
-          cost = createdCount < selectedCount ? 10 : 50;
-        }
+        const cost = this.calculateCost(school.organization);
         return { ...school, cost };
       });
     } catch (error) {
@@ -90,12 +79,7 @@ export class SchoolService {
       );
     }
 
-    let cost = 50;
-    if (school.organization.is_trust) {
-      const createdCount = school.organization.schools.length;
-      const selectedCount = school.organization.selected_school_count ?? 0;
-      cost = createdCount < selectedCount ? 10 : 50;
-    }
+    const cost = this.calculateCost(school.organization);
 
     return { ...school, cost };
   }
@@ -149,5 +133,18 @@ export class SchoolService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * Calculate cost per school based on trust rules
+   */
+  private calculateCost(organization: any) {
+    if (!organization.is_trust) return 50;
+
+    const createdCount = organization.schools?.length ?? 0;
+    const selectedCount = organization.selected_school_count ?? 0;
+
+    // £10 per school if created schools < selected schools for trust
+    return createdCount < selectedCount ? 10 : 50;
   }
 }

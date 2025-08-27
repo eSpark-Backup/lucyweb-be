@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
   Injectable,
   ConflictException,
@@ -8,16 +9,25 @@ import { OrganizationDetails } from 'src/common/schema/organizationDetails.inter
 import { Role } from 'src/common/schema/roles.enum';
 import { UserDetails } from 'src/common/schema/userDetails.interface';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateOrganizationDto } from 'src/common/dto/organizationCreateDto';
 
 @Injectable()
 export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Create organization (supports trusts)
+   */
   async createOrganization(
-    createOrganizationDto: { name: string; address: string },
+    createOrganizationDto: CreateOrganizationDto,
     email: string,
   ): Promise<{ message: string }> {
-    const { name, address } = createOrganizationDto;
+    const {
+      name,
+      address,
+      is_trust = false,
+      selected_school_count = null,
+    } = createOrganizationDto;
 
     // Find the user by email
     const user = await this.prisma.user.findUnique({
@@ -34,9 +44,14 @@ export class OrganizationService {
       throw new ConflictException('User already belongs to an organization');
     }
 
-    // Create the organization
+    // Create the organization with trust fields if provided
     const organization = await this.prisma.organization.create({
-      data: { name, address },
+      data: {
+        name,
+        address,
+        is_trust,
+        selected_school_count,
+      },
     });
 
     // Update the user's profile with the organization ID and promote the role to "admin"
@@ -44,13 +59,17 @@ export class OrganizationService {
       where: { user_id: user.id },
       data: {
         organization_id: organization.id,
-        role_id: 2, // "admin" has ID 2 in the Role table
+        role_id: 2, // "admin" assumed to be ID 2 in the Role table
       },
     });
 
     return { message: 'Organization created successfully' };
   }
 
+  /**
+   * Return organization details for a user identified by email
+   * If role is ADMIN or MODERATOR, include subscription and userCount
+   */
   async getOrganizationDetailsByEmail(
     email: string,
     role: Role,
@@ -82,7 +101,7 @@ export class OrganizationService {
       );
     }
 
-    // Data to always return
+    // Base data always returned
     const baseData = {
       id: organization.id,
       name: organization.name,
@@ -94,7 +113,13 @@ export class OrganizationService {
     };
 
     // If user is Admin or Moderator, include subscription and user count
-    if (role === Role.ADMIN || role === Role.MODERATOR) {
+    const roleName = userProfile.role?.name?.toLowerCase() ?? '';
+    if (
+      role === Role.ADMIN ||
+      role === Role.MODERATOR ||
+      roleName === 'admin' ||
+      roleName === 'moderator'
+    ) {
       const userCount = await this.prisma.profile.count({
         where: {
           organization_id: organization.id,
@@ -115,22 +140,19 @@ export class OrganizationService {
       };
     }
 
-    // If user is a regular user, only return basic organization details
+    // Regular user — only basic details
     return baseData;
   }
 
+  /**
+   * Update organization details (name, address, is_trust, selected_school_count)
+   * Only Owner or Admin allowed
+   */
   async updateOrganizationDetails(
     email: string,
-    updateData: { name?: string; address?: string },
+    updateData: Partial<CreateOrganizationDto>,
   ): Promise<{ message: string; updatedOrganization: any }> {
-    // Ensure either `name` or `address` is provided
-    if (!updateData.name && !updateData.address) {
-      throw new Error(
-        'At least one field (name or address) must be provided for update',
-      );
-    }
-
-    // Fetch user profile with organization details
+    // Fetch user profile with organization and role
     const userProfile = await this.prisma.profile.findFirst({
       where: {
         user: { email },
@@ -154,10 +176,23 @@ export class OrganizationService {
     }
 
     // Check if the user has permissions (Owner or Admin)
-    if (role.name !== 'owner' && role.name !== 'admin') {
+    const roleName = role?.name?.toLowerCase() ?? '';
+    if (roleName !== 'owner' && roleName !== 'admin') {
       throw new ForbiddenException(
         'You do not have permission to update organization details',
       );
+    }
+
+    // Build update payload (only defined fields)
+    const data: any = {};
+    if (updateData.name !== undefined) data.name = updateData.name;
+    if (updateData.address !== undefined) data.address = updateData.address;
+    if (updateData.is_trust !== undefined) data.is_trust = updateData.is_trust;
+    if (updateData.selected_school_count !== undefined)
+      data.selected_school_count = updateData.selected_school_count;
+
+    if (Object.keys(data).length === 0) {
+      throw new Error('At least one field must be provided for update');
     }
 
     // Update the organization
@@ -165,10 +200,7 @@ export class OrganizationService {
       where: {
         id: organization.id,
       },
-      data: {
-        name: updateData.name || undefined,
-        address: updateData.address || undefined,
-      },
+      data,
     });
 
     return {
@@ -177,6 +209,9 @@ export class OrganizationService {
     };
   }
 
+  /**
+   * List users in the same organization (admin / moderator only)
+   */
   async getUsersByOrganization(
     email: string,
     page: number,
@@ -202,7 +237,8 @@ export class OrganizationService {
     const { organization, role } = userProfile;
 
     // Only admin and moderators are allowed
-    if (role.name !== 'admin' && role.name !== 'moderator') {
+    const roleName = role?.name?.toLowerCase() ?? '';
+    if (roleName !== 'admin' && roleName !== 'moderator') {
       throw new ForbiddenException('You do not have access to this resource');
     }
 
