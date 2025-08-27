@@ -25,17 +25,15 @@ export class PaymentService {
   }
 
   /**
-   * Creates a Stripe checkout session for a single school or trust plan
-   * @param plan 'trust' | 'single'
-   * @param organizationId ID of the organization making the payment
+   * Creates a Stripe checkout session for single school or trust plan
    */
   async createCheckoutSession(
     plan: 'trust' | 'single',
     organizationId: number,
   ) {
-    // Fetch organization to calculate amount
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
+      include: { schools: true }, // Include schools if needed
     });
 
     if (!organization) {
@@ -46,26 +44,22 @@ export class PaymentService {
     let description: string;
 
     if (plan === 'trust') {
-      if (
-        !organization.selected_school_count ||
-        organization.selected_school_count < 2
-      ) {
+      const schoolCount = organization.selected_school_count ?? 0;
+      if (schoolCount < 2) {
         throw new HttpException(
           'Trust must select at least 2 schools',
           HttpStatus.BAD_REQUEST,
         );
       }
-      // £10 per school
-      amount = organization.selected_school_count * 1000; // in pence
-      description = `Trust Plan: £10 per school for ${organization.selected_school_count} schools`;
+
+      amount = schoolCount * 1000; // £10 per school in pence
+      description = `Trust Plan: £10 per school for ${schoolCount} schools`;
     } else {
-      // Single school plan
-      amount = 5000; // £50 in pence
+      amount = 5000; // Single school £50 in pence
       description = 'Single School Plan';
     }
 
     try {
-      // Create Stripe checkout session
       const session = await this.stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -88,17 +82,13 @@ export class PaymentService {
         mode: 'subscription',
         success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${this.baseUrl}/cancel`,
-        metadata: {
-          organizationId: organization.id.toString(),
-          plan,
-        },
+        metadata: { organizationId: organization.id.toString(), plan },
       });
 
-      // Optionally create a pending payment record in DB
       await this.prisma.payment.create({
         data: {
           organization_id: organization.id,
-          amount: amount / 100, // store in pounds
+          amount: amount / 100,
           currency: 'GBP',
           status: 'pending',
           description,
@@ -116,29 +106,23 @@ export class PaymentService {
   }
 
   /**
-   * Mark payment as successful in the database
+   * Mark payment as successful
    */
   async markPaymentSuccess(stripeSessionId: string) {
-    // Fetch session from Stripe
     const session =
       await this.stripe.checkout.sessions.retrieve(stripeSessionId);
 
-    if (!session || !session.metadata || !session.metadata.organizationId) {
+    if (!session?.metadata?.organizationId) {
       throw new HttpException('Invalid Stripe session', HttpStatus.BAD_REQUEST);
     }
 
     const organizationId = parseInt(session.metadata.organizationId);
 
-    // Update the pending payment to success
     await this.prisma.payment.updateMany({
-      where: {
-        organization_id: organizationId,
-        status: 'pending',
-      },
+      where: { organization_id: organizationId, status: 'pending' },
       data: { status: 'success' },
     });
 
-    // Update organization subscription status
     await this.prisma.organization.update({
       where: { id: organizationId },
       data: { subscription_status: 'active', last_purchase: new Date() },

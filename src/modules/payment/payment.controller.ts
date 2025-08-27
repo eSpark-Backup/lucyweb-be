@@ -19,9 +19,9 @@ export class PaymentController {
     @Body('plan') plan: 'trust' | 'single',
     @Body('organizationId') organizationId: number,
   ) {
-    if (!organizationId) {
+    if (!organizationId || !plan) {
       throw new HttpException(
-        'organizationId is required',
+        'organizationId and plan are required',
         HttpStatus.BAD_REQUEST,
       );
     }

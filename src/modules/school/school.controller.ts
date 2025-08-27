@@ -36,7 +36,24 @@ export class SchoolController {
   }
 
   /**
-   * Get school details by ID
+   * Get all schools including their organization and calculated cost
+   */
+  @Get()
+  async getAllSchools() {
+    try {
+      const schools = await this.schoolService.findAll();
+      return { success: true, data: schools };
+    } catch (error) {
+      console.error(error);
+      throw new HttpException(
+        error.message || 'Failed to fetch schools',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get school details by ID with calculated cost
    */
   @Get(':id')
   async getSchool(@Param('id', ParseIntPipe) id: number) {
