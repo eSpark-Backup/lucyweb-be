@@ -15,7 +15,6 @@ import { SchoolModule } from './modules/school/school.module';
     AuthModule,
     UserModule,
     OrganizationModule,
-    AuthModule,
     EventModule,
     StorageModule,
     AiModule,

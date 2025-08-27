@@ -14,19 +14,30 @@ export class SchoolService {
     try {
       const organization = await this.prisma.organization.findUnique({
         where: { id: createSchoolDto.organization_id },
+        include: { schools: true }, // include schools for trust logic
       });
 
       if (!organization) {
         throw new HttpException('Organization not found', HttpStatus.NOT_FOUND);
       }
 
-      return await this.prisma.school.create({
+      const school = await this.prisma.school.create({
         data: {
           name: createSchoolDto.name,
           address: createSchoolDto.address,
           organization_id: createSchoolDto.organization_id,
         },
       });
+
+      // Calculate cost for the newly created school
+      let cost = 50;
+      if (organization.is_trust) {
+        const createdCount = organization.schools.length + 1; // include this new school
+        const selectedCount = organization.selected_school_count ?? 0;
+        cost = createdCount < selectedCount ? 10 : 50;
+      }
+
+      return { ...school, cost };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -37,12 +48,22 @@ export class SchoolService {
   }
 
   /**
-   * Fetch all schools
+   * Fetch all schools including calculated cost
    */
   async findAll() {
     try {
-      return await this.prisma.school.findMany({
-        include: { organization: true },
+      const schools = await this.prisma.school.findMany({
+        include: { organization: { include: { schools: true } } },
+      });
+
+      return schools.map((school) => {
+        let cost = 50;
+        if (school.organization.is_trust) {
+          const createdCount = school.organization.schools.length;
+          const selectedCount = school.organization.selected_school_count ?? 0;
+          cost = createdCount < selectedCount ? 10 : 50;
+        }
+        return { ...school, cost };
       });
     } catch (error) {
       console.error(error);
@@ -54,12 +75,12 @@ export class SchoolService {
   }
 
   /**
-   * Fetch a single school by ID
+   * Fetch a single school by ID with calculated cost
    */
   async getSchoolById(id: number) {
     const school = await this.prisma.school.findUnique({
       where: { id },
-      include: { organization: true },
+      include: { organization: { include: { schools: true } } },
     });
 
     if (!school) {
@@ -69,7 +90,14 @@ export class SchoolService {
       );
     }
 
-    return school;
+    let cost = 50;
+    if (school.organization.is_trust) {
+      const createdCount = school.organization.schools.length;
+      const selectedCount = school.organization.selected_school_count ?? 0;
+      cost = createdCount < selectedCount ? 10 : 50;
+    }
+
+    return { ...school, cost };
   }
 
   /**
