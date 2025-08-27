@@ -27,6 +27,7 @@ export class OrganizationService {
       address,
       is_trust = false,
       selected_school_count = null,
+      
     } = createOrganizationDto;
 
     // Find the user by email
@@ -51,6 +52,7 @@ export class OrganizationService {
         address,
         is_trust,
         selected_school_count,
+        trust_locked: false,
       },
     });
 
@@ -59,7 +61,7 @@ export class OrganizationService {
       where: { user_id: user.id },
       data: {
         organization_id: organization.id,
-        role_id: 2, // "admin" assumed to be ID 2 in the Role table
+        role_id: 2,
       },
     });
 
@@ -82,10 +84,10 @@ export class OrganizationService {
       include: {
         organization: {
           include: {
-            subscription: true, // Include subscription details
+            subscription: true,
           },
         },
-        role: true, // Include the role name
+        role: true,
       },
     });
 
