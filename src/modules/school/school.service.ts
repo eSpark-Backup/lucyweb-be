@@ -144,7 +144,16 @@ export class SchoolService {
     const createdCount = organization.schools?.length ?? 0;
     const selectedCount = organization.selected_school_count ?? 0;
 
-    // £10 per school if created schools < selected schools for trust
-    return createdCount < selectedCount ? 10 : 50;
+    if (organization.trust_locked) return 10;
+
+    if (createdCount >= selectedCount) {
+      this.prisma.organization.update({
+        where: { id: organization.id },
+        data: { trust_locked: true },
+      });
+      return 10;
+    }
+
+    return 50;
   }
 }

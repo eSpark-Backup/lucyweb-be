@@ -24,4 +24,8 @@ export class CreateOrganizationDto {
   @Min(0)
   @IsOptional()
   selected_school_count?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  trust_locked?: boolean;
 }
