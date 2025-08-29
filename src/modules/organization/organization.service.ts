@@ -108,6 +108,8 @@ export class OrganizationService {
       id: organization.id,
       name: organization.name,
       address: organization.address,
+      is_trust: organization.is_trust,
+      selected_school_count: organization.selected_school_count,
       owner: {
         fullName: `${userProfile.first_name} ${userProfile.last_name}`,
         email,
