@@ -4,9 +4,14 @@ import { ConfigModule } from '@nestjs/config';
 import { SchoolService } from './school.service';
 import { SchoolController } from './school.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    StorageModule,
+  ],
   controllers: [SchoolController],
   providers: [SchoolService],
   exports: [SchoolService],

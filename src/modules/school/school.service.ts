@@ -2,15 +2,22 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
+import { StorageService } from 'src/modules/storage/storage.service';
 
 @Injectable()
 export class SchoolService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storageService: StorageService,
+  ) {}
 
   /**
    * Create a new school under an organization
    */
-  async createSchool(createSchoolDto: CreateSchoolDto) {
+  async createSchool(
+    createSchoolDto: CreateSchoolDto,
+    file?: Express.Multer.File,
+  ) {
     try {
       const organization = await this.prisma.organization.findUnique({
         where: { id: createSchoolDto.organization_id },
@@ -21,6 +28,11 @@ export class SchoolService {
         throw new HttpException('Organization not found', HttpStatus.NOT_FOUND);
       }
 
+      let imageUrl: string | null = null;
+      if (file) {
+        imageUrl = await this.storageService.uploadFile(file);
+      }
+
       const school = await this.prisma.school.create({
         data: {
           name: createSchoolDto.name,
@@ -28,7 +40,7 @@ export class SchoolService {
           phone: createSchoolDto.phone,
           description: createSchoolDto.description,
           email: createSchoolDto.email,
-          image: createSchoolDto.image,
+          image: imageUrl,
           organization_id: createSchoolDto.organization_id,
         },
       });
@@ -107,7 +119,11 @@ export class SchoolService {
   /**
    * Update a school
    */
-  async updateSchool(id: number, data: Partial<CreateSchoolDto>) {
+  async updateSchool(
+    id: number,
+    data: Partial<CreateSchoolDto>,
+    file?: Express.Multer.File,
+  ) {
     const school = await this.prisma.school.findUnique({ where: { id } });
 
     if (!school) {
@@ -118,6 +134,16 @@ export class SchoolService {
     }
 
     try {
+      let imageUrl = school.image;
+
+      if (file) {
+        // delete old image if exists
+        if (school.image) {
+          await this.storageService.deleteFileFromUrl(school.image);
+        }
+        imageUrl = await this.storageService.uploadFile(file);
+      }
+
       return await this.prisma.school.update({
         where: { id },
         data: {
@@ -126,7 +152,7 @@ export class SchoolService {
           phone: data.phone,
           description: data.description,
           email: data.email,
-          image: data.image,
+          image: imageUrl,
         },
       });
     } catch (error) {
@@ -152,6 +178,11 @@ export class SchoolService {
     }
 
     try {
+      // delete image if exists
+      if (school.image) {
+        await this.storageService.deleteFileFromUrl(school.image);
+      }
+
       // NOTE: trust_locked should never be reverted here
       return await this.prisma.school.delete({ where: { id } });
     } catch (error) {

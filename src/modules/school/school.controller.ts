@@ -10,13 +10,20 @@ import {
   HttpException,
   HttpStatus,
   ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
 
 @Controller('schools')
 export class SchoolController {
-  constructor(private readonly schoolService: SchoolService) {}
+  constructor(
+    private readonly schoolService: SchoolService,
+    private readonly storageService: StorageService,
+  ) {}
 
   private formatSchoolResponse(school: any) {
     return {
@@ -43,12 +50,25 @@ export class SchoolController {
   }
 
   /**
-   * Create a school under an organization
+   * Create a school under an organization (supports image upload)
    */
   @Post('create')
-  async createSchool(@Body() createSchoolDto: CreateSchoolDto) {
+  @UseInterceptors(FileInterceptor('image'))
+  async createSchool(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() createSchoolDto: CreateSchoolDto,
+  ) {
     try {
-      const school = await this.schoolService.createSchool(createSchoolDto);
+      let imageUrl: string | undefined;
+      if (file) {
+        imageUrl = await this.storageService.uploadFile(file);
+      }
+
+      const school = await this.schoolService.createSchool({
+        ...createSchoolDto,
+        image: imageUrl || createSchoolDto.image,
+      });
+
       return {
         success: true,
         message: 'School created successfully',
@@ -106,14 +126,21 @@ export class SchoolController {
   }
 
   /**
-   * Update school
+   * Update school (optionally supports new image upload)
    */
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('image'))
   async updateSchool(
     @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
     @Body() updateData: Partial<CreateSchoolDto>,
   ) {
     try {
+      if (file) {
+        const imageUrl = await this.storageService.uploadFile(file);
+        updateData.image = imageUrl;
+      }
+
       const updated = await this.schoolService.updateSchool(id, updateData);
       return {
         success: true,
