@@ -49,9 +49,6 @@ export class SchoolController {
     };
   }
 
-  /**
-   * Create a school under an organization (supports image upload)
-   */
   @Post('create')
   @UseInterceptors(FileInterceptor('image'))
   async createSchool(
@@ -83,17 +80,14 @@ export class SchoolController {
     }
   }
 
-  /**
-   * Get all schools including their organization and calculated cost
-   */
   @Get()
   async getAllSchools() {
     try {
-      const schools = await this.schoolService.findAll();
+      const { data } = await this.schoolService.findAll(); // ✅ FIXED
       return {
         success: true,
         message: 'Schools fetched successfully',
-        data: schools.map((school) => this.formatSchoolResponse(school)),
+        data: data.map((school) => this.formatSchoolResponse(school)),
       };
     } catch (error) {
       console.error(error);
@@ -104,9 +98,6 @@ export class SchoolController {
     }
   }
 
-  /**
-   * Get school details by ID with calculated cost
-   */
   @Get(':id')
   async getSchool(@Param('id', ParseIntPipe) id: number) {
     try {
@@ -125,9 +116,6 @@ export class SchoolController {
     }
   }
 
-  /**
-   * Update school (optionally supports new image upload)
-   */
   @Patch(':id')
   @UseInterceptors(FileInterceptor('image'))
   async updateSchool(
@@ -156,9 +144,6 @@ export class SchoolController {
     }
   }
 
-  /**
-   * Delete school
-   */
   @Delete(':id')
   async deleteSchool(@Param('id', ParseIntPipe) id: number) {
     try {
