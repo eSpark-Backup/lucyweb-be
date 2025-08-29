@@ -1,209 +1,113 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
-import { StorageService } from 'src/modules/storage/storage.service';
 
 @Injectable()
 export class SchoolService {
-  constructor(
-    private prisma: PrismaService,
-    private storageService: StorageService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Create a new school under an organization
-   */
-  async createSchool(
-    createSchoolDto: CreateSchoolDto,
-    file?: Express.Multer.File,
-  ) {
+  async createSchool(data: any) {
     try {
-      const organization = await this.prisma.organization.findUnique({
-        where: { id: createSchoolDto.organization_id },
-        include: { schools: true },
-      });
 
-      if (!organization) {
-        throw new HttpException('Organization not found', HttpStatus.NOT_FOUND);
+      if (data.organization_id) {
+        data.organization_id = Number(data.organization_id);
+      }
+      return await this.prisma.school.create({
+        data,
+        include: { organization: true },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+        // Prisma unique constraint error
+        throw new HttpException(
+          'A school with this email already exists',
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
-      let imageUrl: string | null = null;
-      if (file) {
-        imageUrl = await this.storageService.uploadFile(file);
-      }
-
-      const school = await this.prisma.school.create({
-        data: {
-          name: createSchoolDto.name,
-          address: createSchoolDto.address,
-          phone: createSchoolDto.phone,
-          description: createSchoolDto.description,
-          email: createSchoolDto.email,
-          image: imageUrl,
-          organization_id: createSchoolDto.organization_id,
-        },
-      });
-
-      // lock trust once threshold is reached
-      if (
-        organization.is_trust &&
-        !organization.trust_locked &&
-        organization.schools.length + 1 >= organization.selected_school_count
-      ) {
-        await this.prisma.organization.update({
-          where: { id: organization.id },
-          data: { trust_locked: true },
-        });
-      }
-
-      const updatedOrg = await this.prisma.organization.findUnique({
-        where: { id: organization.id },
-        include: { schools: true },
-      });
-
-      const cost = this.calculateCost(updatedOrg);
-
-      return { ...school, organization: updatedOrg, cost };
-    } catch (error) {
-      console.error(error);
       throw new HttpException(
-        'Failed to create school',
+        error.message || 'Failed to create school',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  /**
-   * Fetch all schools with calculated cost
-   */
   async findAll() {
     try {
       const schools = await this.prisma.school.findMany({
-        include: { organization: { include: { schools: true } } },
+        include: { organization: true },
       });
 
-      return schools.map((school) => {
-        const cost = this.calculateCost(school.organization);
-        return { ...school, cost };
-      });
+      return { data: schools };
     } catch (error) {
-      console.error(error);
       throw new HttpException(
-        'Failed to fetch schools',
+        error.message || 'Failed to fetch schools',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  /**
-   * Fetch a single school by ID with calculated cost
-   */
   async getSchoolById(id: number) {
-    const school = await this.prisma.school.findUnique({
-      where: { id },
-      include: { organization: { include: { schools: true } } },
-    });
-
-    if (!school) {
+    try {
+      return await this.prisma.school.findUnique({
+        where: { id },
+        include: { organization: true },
+      });
+    } catch (error) {
       throw new HttpException(
-        `School with ID ${id} not found`,
-        HttpStatus.NOT_FOUND,
+        error.message || 'Failed to fetch school',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
-    const cost = this.calculateCost(school.organization);
-    return { ...school, cost };
   }
 
-  /**
-   * Update a school
-   */
-  async updateSchool(
-    id: number,
-    data: Partial<CreateSchoolDto>,
-    file?: Express.Multer.File,
-  ) {
-    const school = await this.prisma.school.findUnique({ where: { id } });
-
-    if (!school) {
-      throw new HttpException(
-        `School with ID ${id} not found`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
+  async updateSchool(id: number, data: any) {
     try {
-      let imageUrl = school.image;
-
-      if (file) {
-        // delete old image if exists
-        if (school.image) {
-          await this.storageService.deleteFileFromUrl(school.image);
-        }
-        imageUrl = await this.storageService.uploadFile(file);
+      if (data.organization_id) {
+        data.organization_id = Number(data.organization_id);
       }
-
       return await this.prisma.school.update({
         where: { id },
-        data: {
-          name: data.name,
-          address: data.address,
-          phone: data.phone,
-          description: data.description,
-          email: data.email,
-          image: imageUrl,
-        },
+        data,
+        include: { organization: true },
       });
     } catch (error) {
-      console.error(error);
       throw new HttpException(
-        'Failed to update school',
+        error.message || 'Failed to update school',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  /**
-   * Delete a school
-   */
   async deleteSchool(id: number) {
-    const school = await this.prisma.school.findUnique({ where: { id } });
-
-    if (!school) {
-      throw new HttpException(
-        `School with ID ${id} not found`,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
     try {
-      // delete image if exists
-      if (school.image) {
-        await this.storageService.deleteFileFromUrl(school.image);
-      }
-
-      // NOTE: trust_locked should never be reverted here
-      return await this.prisma.school.delete({ where: { id } });
+      return await this.prisma.school.delete({
+        where: { id },
+      });
     } catch (error) {
-      console.error(error);
       throw new HttpException(
-        'Failed to delete school',
+        error.message || 'Failed to delete school',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  /**
-   * Calculate cost per school based on trust rules
-   */
-  private calculateCost(organization: any) {
-    if (!organization.is_trust) return 50;
-    if (organization.trust_locked) return 10;
+  // Example place where `.join` caused issue (FIXED with cast)
+  async someMethodUsingJoin() {
+    const result = await this.prisma.school.findMany({
+      include: { organization: true },
+    });
 
-    const createdCount = organization.schools?.length ?? 0;
-    const selectedCount = organization.selected_school_count ?? 0;
+    const orgNames: string[] = result.map((r) => r.organization?.name || ''); // ✅ Explicitly typed
+    return orgNames.join(', ');
+  }
 
-    return createdCount >= selectedCount ? 10 : 50;
+  async anotherMethodUsingJoin() {
+    const result = await this.prisma.school.findMany({
+      include: { organization: true },
+    });
+
+    const schoolNames: string[] = result.map((r) => r.name || ''); // ✅ Explicitly typed
+    return schoolNames.join('; ');
   }
 }
