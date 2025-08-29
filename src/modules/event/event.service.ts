@@ -30,15 +30,10 @@ export class EventService {
     const events = await this.prisma.event.groupBy({
       by: ['date_time'],
       where: {
-        date_time: {
-          gte: startDate,
-          lt: endDate,
-        },
+        date_time: { gte: startDate, lt: endDate },
         user_id: userId,
       },
-      _count: {
-        id: true,
-      },
+      _count: { id: true },
     });
 
     return events.map((event) => ({
@@ -48,8 +43,7 @@ export class EventService {
   }
 
   async getEventsByDay(date: string, userId: number): Promise<Event[]> {
-    const parsed = new Date(date); // '2025-06-29' → 2025-06-29T00:00:00.000Z
-
+    const parsed = new Date(date);
     const startDate = new Date(
       Date.UTC(
         parsed.getUTCFullYear(),
@@ -67,24 +61,17 @@ export class EventService {
 
     return this.prisma.event.findMany({
       where: {
-        date_time: {
-          gte: startDate,
-          lt: endDate,
-        },
+        date_time: { gte: startDate, lt: endDate },
         user_id: userId,
       },
-      include: {
-        contents: true,
-      },
+      include: { contents: true },
     });
   }
 
   async getEventById(id: number): Promise<Event | null> {
     return this.prisma.event.findUnique({
       where: { id },
-      include: {
-        contents: true,
-      },
+      include: { contents: true },
     });
   }
 
@@ -96,63 +83,39 @@ export class EventService {
     const userExists = await this.prisma.user.findUnique({
       where: { id: userId },
     });
-
-    if (!userExists) {
+    if (!userExists)
       throw new Error('User not found. Please check the userId.');
-    }
 
-    // Validate date_time
-    // Parse incoming time with timezone, convert to UTC before storing
     const eventDate = new Date(data.date_time);
-
     if (isNaN(eventDate.getTime())) {
       throw new BadRequestException(
-        'Invalid date_time format. Please send in ISO 8601 format with timezone (e.g., 2025-08-11T15:00:00Z).',
+        'Invalid date_time format. Please use ISO 8601 with timezone.',
       );
     }
-
-    // Compare UTC timestamps
-    const eventDateUTC = eventDate.getTime();
-    const nowUTC = Date.now();
-
-    if (eventDateUTC < nowUTC) {
-      throw new BadRequestException(
-        'Cannot create events in the past. Event date and time must be in the future or current time.',
-      );
+    if (eventDate.getTime() < Date.now()) {
+      throw new BadRequestException('Cannot create events in the past.');
     }
+    data.date_time = new Date(eventDate.getTime());
 
-    // Force UTC date storage
-    data.date_time = new Date(eventDateUTC);
-
-    // 3. Validate time_span
     const fixedTimeSpan =
       typeof data?.time_span === 'string'
-        ? parseInt(data?.time_span)
+        ? parseInt(data?.time_span, 10)
         : data?.time_span;
-
     if (isNaN(fixedTimeSpan)) {
       throw new BadRequestException('Invalid time_span: must be a number.');
     }
 
-    // 4. Upload image if provided
     let imageUrl: string | undefined;
-    if (file) {
-      imageUrl = await this.storageService.uploadFile(file);
-    }
+    if (file) imageUrl = await this.storageService.uploadFile(file);
 
-    // 5. Create event in DB
     return this.prisma.event.create({
       data: {
         ...data,
         time_span: fixedTimeSpan,
         image: imageUrl,
-        user: {
-          connect: { id: userId },
-        },
+        user: { connect: { id: userId } },
       },
-      include: {
-        contents: true,
-      },
+      include: { contents: true },
     });
   }
 
@@ -161,38 +124,23 @@ export class EventService {
     data: Prisma.EventUpdateInput,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    // Validate date_time if present in update payload
     if (data.date_time) {
       const eventDate = new Date(data.date_time as string);
-
       if (isNaN(eventDate.getTime())) {
+        throw new BadRequestException('Invalid date_time format.');
+      }
+      if (eventDate.getTime() < Date.now()) {
         throw new BadRequestException(
-          'Invalid date_time format. Please send in ISO 8601 format with timezone (e.g., 2025-08-11T15:00:00Z).',
+          'Cannot set event date/time in the past.',
         );
       }
-
-      const eventDateUTC = eventDate.getTime();
-      const nowUTC = Date.now();
-
-      if (eventDateUTC < nowUTC) {
-        throw new BadRequestException(
-          'Cannot set event date/time in the past. Event date and time must be in the future or current time.',
-        );
-      }
-
-      // Force UTC storage
-      data.date_time = new Date(eventDateUTC);
+      data.date_time = new Date(eventDate.getTime());
     }
 
-    // Handle image
     let imageUrl: string | undefined;
-
-    if (file) {
-      imageUrl = await this.storageService.uploadFile(file);
-    }
+    if (file) imageUrl = await this.storageService.uploadFile(file);
 
     const { contents, time_span, ...eventData } = data;
-
     let existingImage = null;
     if (!file) {
       const existingEvent = await this.prisma.event.findUnique({
@@ -213,28 +161,18 @@ export class EventService {
     return this.prisma.event.update({
       where: { id },
       data: updatePayload,
-      include: {
-        contents: true,
-      },
+      include: { contents: true },
     });
   }
 
   async deleteEvent(id: number): Promise<Event> {
-    await this.prisma.content.deleteMany({
-      where: { event_id: Number(id) },
-    });
-
-    // Now delete the event
-    return this.prisma.event.delete({
-      where: { id: Number(id) },
-    });
+    await this.prisma.content.deleteMany({ where: { event_id: Number(id) } });
+    return this.prisma.event.delete({ where: { id: Number(id) } });
   }
 
   async getContentsByEventId(eventId: number): Promise<Content[]> {
     return this.prisma.content.findMany({
-      where: {
-        event_id: Number(eventId),
-      },
+      where: { event_id: Number(eventId) },
     });
   }
 
@@ -242,31 +180,19 @@ export class EventService {
     eventId: number,
     contentId: number,
   ): Promise<Content | null> {
-    // First check if the event exists
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
+    if (!eventExists) throw new NotFoundException('Event not found.');
 
-    if (!eventExists) {
-      throw new NotFoundException('Event not found. Please check the eventId.');
-    }
-
-    // Now find the content associated with the event
     const content = await this.prisma.content.findUnique({
-      where: {
-        id: Number(contentId),
-        event_id: Number(eventId), // Ensures content is linked to the specified event
-      },
-      include: {
-        content_recipients: true, // Include associated recipients
-        event: true, // Optionally include related event
-      },
+      where: { id: Number(contentId) },
+      include: { content_recipients: true, event: true },
     });
 
-    if (!content) {
-      throw new NotFoundException('Content not found for the specified event.');
+    if (!content || content.event.id !== eventId) {
+      throw new NotFoundException('Content not found for this event.');
     }
-
     return content;
   }
 
@@ -275,27 +201,19 @@ export class EventService {
     data: CreateContentDto,
     userId: number,
   ): Promise<Content> {
-    // Check if the event exists
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
+    if (!eventExists) throw new NotFoundException('Event not found.');
 
-    if (!eventExists) {
-      throw new NotFoundException('Event not found. Please check the eventId.');
-    }
-
-    // Destructure data to separate content recipients
     const { content_recipients, post_method, ...contentData } = data;
 
-    // Lookup the PostMethod ID based on the provided method name
     const postMethod = await this.prisma.postMethod.findUnique({
-      where: { name: post_method }, // Assuming post_method is the exact method name
+      where: { name: post_method },
     });
-    if (!postMethod) {
+    if (!postMethod)
       throw new NotFoundException(`Post method "${post_method}" not found.`);
-    }
 
-    // Create the content record
     const content = await this.prisma.content.create({
       data: {
         ...contentData,
@@ -303,42 +221,31 @@ export class EventService {
         content_recipients: content_recipients
           ? {
               create: content_recipients.map((recipient) => ({
-                recipient, // Assuming recipient is directly the identifier
-                method_id: postMethod.id, // Link to the found PostMethod ID
+                recipient,
+                method_id: postMethod.id,
                 user_id: userId,
               })),
             }
-          : {}, // If no recipients are provided, create content without them
+          : {},
       },
     });
 
     const { name } = await this.prisma.event.findFirst({
-      where: {
-        id: Number(eventId),
-      },
+      where: { id: Number(eventId) },
     });
-
-    // If there are recipients, send an email
-    if (content_recipients && content_recipients.length > 0) {
-      const emailSubject = `New Content Created for the Event: ${name}`;
+    if (content_recipients?.length) {
+      const emailSubject = `New Content Created for Event: ${name}`;
       const emailBody = this.emailService.createEmailBody(
         content.content_type,
         content.text_content,
         content.attachment,
       );
-
-      // Send emails to all recipients
       await Promise.all(
-        content_recipients.map((recipient) => {
-          return this.emailService.sendEmail(
-            recipient,
-            emailSubject,
-            emailBody,
-          );
-        }),
+        content_recipients.map((recipient) =>
+          this.emailService.sendEmail(recipient, emailSubject, emailBody),
+        ),
       );
     }
-
     return content;
   }
 
@@ -348,33 +255,27 @@ export class EventService {
     data: UpdateContentDto,
     userId: number,
   ): Promise<Content> {
-    // Ensure event exists
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
-    if (!eventExists) {
-      throw new NotFoundException('Event not found. Please check the eventId.');
-    }
+    if (!eventExists) throw new NotFoundException('Event not found.');
 
-    // Destructure data to separate content recipients
     const { content_recipients, post_method, ...contentData } = data;
 
-    // Prepare the content update data
     const contentUpdateData: Prisma.ContentUpdateInput = {
       ...contentData,
       content_recipients: content_recipients
         ? {
-            deleteMany: { content_id: Number(id) }, // Optionally clear existing recipients
+            deleteMany: { content_id: Number(id) },
             create: await Promise.all(
               content_recipients.map(async (recipient) => {
                 const postMethod = await this.prisma.postMethod.findUnique({
-                  where: { name: post_method }, // Match by method name
+                  where: { name: post_method },
                 });
-                if (!postMethod) {
+                if (!postMethod)
                   throw new NotFoundException(
                     `Post method "${post_method}" not found.`,
                   );
-                }
 
                 return {
                   recipient,
@@ -384,34 +285,27 @@ export class EventService {
               }),
             ),
           }
-        : undefined, // If no recipients are provided, do not update this field
+        : undefined,
     };
 
-    // Update the content
     const updatedContent = await this.prisma.content.update({
       where: { id: Number(id) },
       data: contentUpdateData,
     });
 
-    if (content_recipients && content_recipients.length > 0) {
+    if (content_recipients?.length) {
       const emailSubject = `Content Updated for Event ID: ${eventId}`;
       const emailBody = this.emailService.createEmailBody(
         updatedContent.content_type,
         updatedContent.text_content,
         updatedContent.attachment,
       );
-      // Send emails to all recipients
       await Promise.all(
-        content_recipients.map(async (recipient) => {
-          return this.emailService.sendEmail(
-            recipient,
-            emailSubject,
-            emailBody,
-          );
-        }),
+        content_recipients.map((recipient) =>
+          this.emailService.sendEmail(recipient, emailSubject, emailBody),
+        ),
       );
     }
-
     return updatedContent;
   }
 
@@ -419,20 +313,14 @@ export class EventService {
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
-    if (!eventExists) {
-      throw new Error('Event not found. Please check the eventId.');
-    }
-    const contentId = Number(id);
-    return this.prisma.content.delete({
-      where: { id: contentId },
-    });
+    if (!eventExists) throw new Error('Event not found.');
+    return this.prisma.content.delete({ where: { id: Number(id) } });
   }
 
   async uploadContentFile(file: Express.Multer.File): Promise<string> {
     return this.storageService.uploadFile(file);
   }
 
-  // Method to email existing content
   async emailContent(
     eventId: number,
     contentId: number,
@@ -440,15 +328,11 @@ export class EventService {
   ): Promise<void> {
     const content = await this.prisma.content.findUnique({
       where: { id: Number(contentId) },
-      include: {
-        event: true,
-      },
+      include: { event: true },
     });
 
     if (!content || content.event.id !== eventId) {
-      throw new Error(
-        'Content not found or does not belong to the specified event.',
-      );
+      throw new Error('Content not found or does not belong to this event.');
     }
 
     const emailSubject = `Content from Event ID: ${eventId}`;
@@ -458,24 +342,16 @@ export class EventService {
       <p>Text: ${content.text_content}</p>
       <p>Attachment: ${content.attachment || 'No attachment'}</p>
     `;
-
     await this.emailService.sendEmail(userEmail, emailSubject, emailBody);
   }
 
   async getAllUniqueRecipientsByUser(userId: number): Promise<string[]> {
     const recipients = await this.prisma.contentRecipient.findMany({
-      where: {
-        user_id: userId,
-      },
+      where: { user_id: userId },
       distinct: ['recipient'],
-      select: {
-        recipient: true,
-      },
-      orderBy: {
-        created_at: 'desc',
-      },
+      select: { recipient: true },
+      orderBy: { created_at: 'desc' },
     });
-
     return recipients.map((r) => r.recipient);
   }
 
@@ -493,15 +369,13 @@ export class EventService {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
-    if (!event) {
-      throw new NotFoundException('Event not found');
-    }
+    if (!event) throw new NotFoundException('Event not found');
 
     const { content_recipients, content_type, text_content, attachment } = data;
-
-    if (!content_recipients || content_recipients.length === 0) {
+    if (!content_recipients?.length) {
       throw new BadRequestException('Recipients list cannot be empty');
     }
+
     const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
     const emailBody = this.emailService.createEmailBody(
       content_type,
@@ -514,7 +388,6 @@ export class EventService {
         this.emailService.sendEmail(recipient, emailSubject, emailBody),
       ),
     );
-
     return { success: true };
   }
 }
