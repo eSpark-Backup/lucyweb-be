@@ -13,17 +13,16 @@ import {
   UploadedFile,
   Req,
   NotFoundException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 import { EventService } from './event.service';
 import { Role } from 'src/common/schema/roles.enum';
 import { Roles } from 'src/common/decorator/roles.decorator';
-import { Prisma } from '@prisma/client';
-import { Content } from '@prisma/client';
+import { Prisma, Content } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
-import { ParseIntPipe } from '@nestjs/common';
 
 @Controller('events')
 @UseGuards(JwtAuthGuard)
@@ -37,37 +36,32 @@ export class EventController {
     @Query('year') year: string,
     @Query('month') month: string,
   ) {
-    const userId = req.user.id;
     return this.eventsService.getEventCountByDay(
       parseInt(year),
       parseInt(month),
-      userId,
+      req.user.id,
     );
   }
 
   @Get('by-day')
   @Roles(Role.USER, Role.ADMIN)
   async getEventsByDay(@Req() req, @Query('date') date: string) {
-    const userId = req.user.id;
-    return this.eventsService.getEventsByDay(date, userId);
+    return this.eventsService.getEventsByDay(date, req.user.id);
   }
 
   @Get('me')
   @Roles(Role.USER, Role.ADMIN)
   async getMyEvents(@Req() req) {
-    const userId = req.user.id;
-    return this.eventsService.getAllEventsByUserId(userId);
+    return this.eventsService.getAllEventsByUserId(req.user.id);
   }
 
   @Get(':id')
   @Roles(Role.USER, Role.ADMIN)
   async getEventById(@Param('id') id: string) {
     const event = await this.eventsService.getEventById(parseInt(id));
-
     if (!event) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
-
     return event;
   }
 
@@ -79,8 +73,7 @@ export class EventController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
-    const userId: number = +req.user.id;
-    return this.eventsService.createEvent(data, userId, file);
+    return this.eventsService.createEvent(data, req.user.id, file);
   }
 
   @Put(':id')
@@ -100,11 +93,11 @@ export class EventController {
     return this.eventsService.deleteEvent(parseInt(id));
   }
 
-  // New endpoints for contents:
-
   @Get(':eventId/contents')
   @Roles(Role.USER, Role.ADMIN)
-  async getContents(@Param('eventId') eventId: number): Promise<Content[]> {
+  async getContents(
+    @Param('eventId', ParseIntPipe) eventId: number,
+  ): Promise<Content[]> {
     return this.eventsService.getContentsByEventId(eventId);
   }
 
@@ -112,7 +105,7 @@ export class EventController {
   @Roles(Role.USER, Role.ADMIN)
   async createContent(
     @Req() req,
-    @Param('eventId') eventId: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
     @Body() createContentDto: CreateContentDto,
   ): Promise<Content> {
     return this.eventsService.createContent(
@@ -126,8 +119,8 @@ export class EventController {
   @Roles(Role.USER, Role.ADMIN)
   async updateContent(
     @Req() req,
-    @Param('id') id: number,
-    @Param('eventId') eventId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
     @Body() updateContentDto: UpdateContentDto,
   ): Promise<Content> {
     return this.eventsService.updateContent(
@@ -141,16 +134,16 @@ export class EventController {
   @Delete(':eventId/contents/:id')
   @Roles(Role.ADMIN)
   async deleteContent(
-    @Param('id') id: number,
-    @Param('eventId') eventId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
   ): Promise<Content> {
     return this.eventsService.deleteContent(id, eventId);
   }
 
   @Get(':eventId/contents/:contentId')
   async getContentById(
-    @Param('eventId') eventId: number,
-    @Param('contentId') contentId: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Param('contentId', ParseIntPipe) contentId: number,
   ): Promise<Content> {
     return this.eventsService.getContentById(eventId, contentId);
   }
@@ -159,26 +152,23 @@ export class EventController {
   @UseInterceptors(FileInterceptor('file'))
   @Roles(Role.USER, Role.ADMIN)
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
-    const filePath = await this.eventsService.uploadContentFile(file);
-    return { filePath };
+    return { filePath: await this.eventsService.uploadContentFile(file) };
   }
 
   @Post(':eventId/contents/:contentId/email')
   @Roles(Role.ADMIN)
   async emailExistingContent(
-    @Param('eventId') eventId: number,
-    @Param('contentId') contentId: number,
+    @Param('eventId', ParseIntPipe) eventId: number,
+    @Param('contentId', ParseIntPipe) contentId: number,
     @Request() req,
   ) {
-    const userEmail = req.user.email;
-    return this.eventsService.emailContent(eventId, contentId, userEmail);
+    return this.eventsService.emailContent(eventId, contentId, req.user.email);
   }
 
   @Get('content-recipients/me')
   @Roles(Role.USER, Role.ADMIN)
   async getMyRecipients(@Req() req) {
-    const userId = req.user.id;
-    return this.eventsService.getAllUniqueRecipientsByUser(userId);
+    return this.eventsService.getAllUniqueRecipientsByUser(req.user.id);
   }
 
   @Post(':eventId/send-email')
