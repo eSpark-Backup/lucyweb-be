@@ -48,4 +48,8 @@ export class StorageService {
       throw new Error('An error occurred while uploading the file.');
     }
   }
+  async deleteFileFromUrl(fileUrl: string): Promise<void> {
+    const key = fileUrl.split('/').pop(); // assuming simple path
+    await this.s3.deleteObject({ Bucket: this.bucketName, Key: key }).promise();
+  }
 }
