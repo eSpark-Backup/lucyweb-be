@@ -1,5 +1,11 @@
 /* eslint-disable prettier/prettier */
-import { IsNotEmpty, IsString, IsInt } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsInt,
+  IsEmail,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateSchoolDto {
   @IsString()
@@ -9,6 +15,22 @@ export class CreateSchoolDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  image?: string;
 
   @IsInt()
   @IsNotEmpty()
