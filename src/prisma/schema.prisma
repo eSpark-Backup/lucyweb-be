@@ -44,12 +44,17 @@ model School {
   id              Int           @id @default(autoincrement())
   name            String
   address         String
+  phone           String
+  description     String?
+  email           String        @unique
+  image           String?
   created_at      DateTime      @default(now())
   updated_at      DateTime      @updatedAt
 
   organization_id Int
   organization    Organization  @relation(fields: [organization_id], references: [id])
 }
+
 
 model Organization {
   id                    Int             @id @default(autoincrement())

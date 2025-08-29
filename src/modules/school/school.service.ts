@@ -25,6 +25,10 @@ export class SchoolService {
         data: {
           name: createSchoolDto.name,
           address: createSchoolDto.address,
+          phone: createSchoolDto.phone,
+          description: createSchoolDto.description,
+          email: createSchoolDto.email,
+          image: createSchoolDto.image,
           organization_id: createSchoolDto.organization_id,
         },
       });
@@ -116,7 +120,14 @@ export class SchoolService {
     try {
       return await this.prisma.school.update({
         where: { id },
-        data,
+        data: {
+          name: data.name,
+          address: data.address,
+          phone: data.phone,
+          description: data.description,
+          email: data.email,
+          image: data.image,
+        },
       });
     } catch (error) {
       console.error(error);

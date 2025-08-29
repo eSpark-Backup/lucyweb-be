@@ -18,6 +18,30 @@ import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
 export class SchoolController {
   constructor(private readonly schoolService: SchoolService) {}
 
+  private formatSchoolResponse(school: any) {
+    return {
+      id: school.id,
+      name: school.name,
+      address: school.address,
+      phone: school.phone,
+      email: school.email,
+      description: school.description,
+      image: school.image,
+      organization: school.organization
+        ? {
+            id: school.organization.id,
+            name: school.organization.name,
+            is_trust: school.organization.is_trust,
+            trust_locked: school.organization.trust_locked,
+            selected_school_count: school.organization.selected_school_count,
+          }
+        : null,
+      cost: school.cost,
+      created_at: school.created_at,
+      updated_at: school.updated_at,
+    };
+  }
+
   /**
    * Create a school under an organization
    */
@@ -25,7 +49,11 @@ export class SchoolController {
   async createSchool(@Body() createSchoolDto: CreateSchoolDto) {
     try {
       const school = await this.schoolService.createSchool(createSchoolDto);
-      return { success: true, data: school };
+      return {
+        success: true,
+        message: 'School created successfully',
+        data: this.formatSchoolResponse(school),
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -42,7 +70,11 @@ export class SchoolController {
   async getAllSchools() {
     try {
       const schools = await this.schoolService.findAll();
-      return { success: true, data: schools };
+      return {
+        success: true,
+        message: 'Schools fetched successfully',
+        data: schools.map((school) => this.formatSchoolResponse(school)),
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -59,7 +91,11 @@ export class SchoolController {
   async getSchool(@Param('id', ParseIntPipe) id: number) {
     try {
       const school = await this.schoolService.getSchoolById(id);
-      return { success: true, data: school };
+      return {
+        success: true,
+        message: 'School fetched successfully',
+        data: this.formatSchoolResponse(school),
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -79,7 +115,11 @@ export class SchoolController {
   ) {
     try {
       const updated = await this.schoolService.updateSchool(id, updateData);
-      return { success: true, data: updated };
+      return {
+        success: true,
+        message: 'School updated successfully',
+        data: this.formatSchoolResponse(updated),
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -96,7 +136,11 @@ export class SchoolController {
   async deleteSchool(@Param('id', ParseIntPipe) id: number) {
     try {
       await this.schoolService.deleteSchool(id);
-      return { success: true, message: 'School deleted successfully' };
+      return {
+        success: true,
+        message: 'School deleted successfully',
+        data: { id },
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
