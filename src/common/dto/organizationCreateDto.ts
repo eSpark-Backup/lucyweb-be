@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  Min,
+} from 'class-validator';
 
 export class CreateOrganizationDto {
   @IsString()
@@ -8,4 +15,17 @@ export class CreateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @IsBoolean()
+  @IsOptional()
+  is_trust?: boolean;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  selected_school_count?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  trust_locked?: boolean;
 }

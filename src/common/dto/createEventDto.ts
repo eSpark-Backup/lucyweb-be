@@ -28,8 +28,4 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   description?: string;
-
-  @IsString()
-  @IsOptional()
-  image?: string; 
 }
