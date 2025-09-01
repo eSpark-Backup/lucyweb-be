@@ -1,18 +1,22 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+// src/common/dto/contentDto.ts
+
+import { IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
 
 export class CreateContentDto {
+  @IsString()
   @IsNotEmpty()
   content_type: string;
 
+  @IsString()
   @IsNotEmpty()
   text_content: string;
 
   @IsOptional()
-  @IsString()
   attachment?: string;
 
   @IsOptional()
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   content_recipients?: string[];
 
   @IsOptional()
@@ -22,19 +26,19 @@ export class CreateContentDto {
 
 export class UpdateContentDto {
   @IsOptional()
-  @IsNotEmpty()
+  @IsString()
   content_type?: string;
 
   @IsOptional()
-  @IsNotEmpty()
+  @IsString()
   text_content?: string;
 
   @IsOptional()
-  @IsString()
   attachment?: string;
 
   @IsOptional()
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   content_recipients?: string[];
 
   @IsOptional()

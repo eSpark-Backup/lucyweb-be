@@ -19,15 +19,15 @@ async function bootstrap() {
   });
 
   // Start application
-  await app.listen(process.env.PORT ?? 5000);
+  await app.listen(process.env.PORT ?? 3000);
 
   // Log all registered routes
   const server = app.getHttpAdapter();
   const routes = server
     .getInstance()
-    ._router?.stack?.filter((layer) => layer.route)
+    ._router?.stack?.filter((layer: { route: any }) => layer.route)
     ?.map(
-      (layer) =>
+      (layer: { route: { methods: object; path: any } }) =>
         `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`,
     );
   console.log('Registered routes:', routes);

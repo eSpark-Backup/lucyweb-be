@@ -8,18 +8,19 @@ import { StorageModule } from './modules/storage/storage.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AdminModule } from './modules/users/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { SchoolModule } from './modules/school/school.module';
 
 @Module({
   imports: [
     AuthModule,
     UserModule,
     OrganizationModule,
-    AuthModule,
     EventModule,
     StorageModule,
     AiModule,
     AdminModule,
     PaymentModule,
+    SchoolModule,
   ],
   controllers: [],
   providers: [PrismaService],
