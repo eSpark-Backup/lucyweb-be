@@ -31,7 +31,21 @@ export class PaymentController {
         plan,
         organizationId,
       );
-      return { success: true, data: session };
+
+      return {
+        success: true,
+        data: {
+          session_id: session.id,
+          plan,
+          organization_id: organizationId,
+          currency: 'GBP',
+          status: 'pending',
+          description:
+            plan === 'trust'
+              ? `Trust Plan: £10 per school`
+              : 'Single School Plan',
+        },
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
@@ -53,7 +67,16 @@ export class PaymentController {
 
     try {
       const result = await this.paymentService.markPaymentSuccess(sessionId);
-      return { success: true, data: result };
+
+      return {
+        success: true,
+        data: {
+          session_id: sessionId,
+          status: 'success',
+          organization_subscription: 'active',
+          ...result,
+        },
+      };
     } catch (error) {
       console.error(error);
       throw new HttpException(
