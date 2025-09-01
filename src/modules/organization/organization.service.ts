@@ -27,7 +27,6 @@ export class OrganizationService {
       address,
       is_trust = false,
       selected_school_count = null,
-      
     } = createOrganizationDto;
 
     // Find the user by email

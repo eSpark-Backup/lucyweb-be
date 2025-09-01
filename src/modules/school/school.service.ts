@@ -8,7 +8,6 @@ export class SchoolService {
 
   async createSchool(data: any) {
     try {
-
       if (data.organization_id) {
         data.organization_id = Number(data.organization_id);
       }
