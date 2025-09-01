@@ -9,6 +9,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AdminModule } from './modules/users/admin/admin.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { SchoolModule } from './modules/school/school.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SchoolModule } from './modules/school/school.module';
     AdminModule,
     PaymentModule,
     SchoolModule,
+    ScheduleModule,
   ],
   controllers: [],
   providers: [PrismaService],
