@@ -1,7 +1,8 @@
+// src/jobs/eventReminder.job.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
+import { EmailService } from '../modules/email/email.service';
 
 @Injectable()
 export class EventReminderJob {
@@ -25,26 +26,33 @@ export class EventReminderJob {
       // Find events starting in exactly 5 days
       const events = await this.prisma.event.findMany({
         where: {
-          start_date: {
+          date_time: {
             gte: new Date(reminderDate.setHours(0, 0, 0, 0)),
             lt: new Date(reminderDate.setHours(23, 59, 59, 999)),
           },
         },
         include: {
-          attendees: true, // assuming you have attendees with emails
+          contents: {
+            include: {
+              content_recipients: true,
+            },
+          },
         },
       });
 
       for (const event of events) {
-        const recipients = event.attendees.map((a) => a.email);
+        // Collect all recipients from content_recipients
+        const recipients = event.contents.flatMap((c) =>
+          c.content_recipients.map((cr) => cr.recipient),
+        );
 
         if (recipients.length > 0) {
           await this.emailService.sendEmail(
             recipients,
-            `Reminder: ${event.title} starts in 5 days`,
+            `Reminder: ${event.name} starts in 5 days`,
             `<p>Hello,</p>
-             <p>This is a friendly reminder that your event <strong>${event.title}</strong> 
-             will start on <strong>${event.start_date.toDateString()}</strong>.</p>
+             <p>This is a friendly reminder that your event <strong>${event.name}</strong> 
+             will start on <strong>${event.date_time.toDateString()}</strong>.</p>
              <p>See you there!</p>`,
           );
         }
