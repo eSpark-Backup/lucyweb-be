@@ -28,7 +28,7 @@ export class UserService {
 
   async registerUser(
     userRegisterDto: UserRegisterDto,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; token: string }> {
     const { email, password, first_name, last_name, phone, role } =
       userRegisterDto;
 
@@ -42,65 +42,66 @@ export class UserService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate verification token and expiration time
     const verificationToken = this.emailService.generateVerificationToken();
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
 
     let roleId: number;
-
     if (role) {
       const roleRecord = await this.prisma.role.findUnique({
         where: { name: role },
       });
-
       if (!roleRecord) {
         throw new BadRequestException(`Invalid role: ${role}`);
       }
-
       roleId = roleRecord.id;
     } else {
       roleId = 4;
     }
 
-    // Create user and associated profile
-    await this.prisma.user.create({
+    const newUser = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         email_verified: false,
         email_verification_token: verificationToken,
         email_verification_expires: verificationExpires,
-        role: {
-          connect: { id: roleId },
-        },
+        role: { connect: { id: roleId } },
         profile: {
           create: {
             first_name,
             last_name,
             phone,
-            role: {
-              connect: { id: roleId },
-            },
+            role: { connect: { id: roleId } },
           },
         },
       },
     });
 
-    // Send verification email
     await this.emailService.sendVerificationEmail(
       email,
       verificationToken,
       first_name,
     );
 
+    const token = this.jwtService.sign(
+      {
+        id: newUser.id,
+        email: newUser.email,
+      },
+      {
+        secret: process.env.JWT_SECRET, // ✅ explicitly pass secret
+        expiresIn: '1d',
+      },
+    );
+
     return {
       message:
         'Registration successful! Please check your email to verify your account.',
+      token,
     };
   }
 
-  // Resend verification email
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -110,17 +111,14 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
     if (user.email_verified) {
       throw new BadRequestException('Email is already verified');
     }
 
-    // Generate new verification token
     const verificationToken = this.emailService.generateVerificationToken();
     const verificationExpires = new Date();
     verificationExpires.setHours(verificationExpires.getHours() + 24);
 
-    // Update user with new token
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -129,37 +127,32 @@ export class UserService {
       },
     });
 
-    // Send verification email
     await this.emailService.sendVerificationEmail(
       email,
       verificationToken,
       user.profile?.first_name,
     );
 
-    return {
-      message: 'Verification email sent! Please check your email.',
-    };
+    return { message: 'Verification email sent! Please check your email.' };
   }
 
-  async findUserByEmail(email: string): Promise<User | null> {
-    return await this.prisma.user.findUnique({
+  async findUserByEmail(email: string): Promise<Partial<User> | null> {
+    const user = await this.prisma.user.findUnique({
       where: { email },
-      include: {
-        profile: true,
-      },
+      include: { profile: true, role: true },
     });
+
+    if (!user) return null;
+
+    return this.sanitizeUser(user);
   }
 
   async getUserProfile(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
-        profile: {
-          include: {
-            organization: true,
-            role: true,
-          },
-        },
+        profile: { include: { organization: true, role: true } },
+        role: true,
       },
     });
 
@@ -167,36 +160,15 @@ export class UserService {
       throw new NotFoundException('User or profile not found');
     }
 
-    return {
-      email: user.email,
-      first_name: user.profile.first_name,
-      last_name: user.profile.last_name,
-      fullName: `${user.profile?.first_name} ${user.profile?.last_name}`,
-      email_verified: user?.email_verified,
-      phone: user.profile.phone,
-      profile_image: user.profile.profile_image,
-      role: user.profile.role?.name,
-
-      organization: user.profile.organization
-        ? {
-            name: user.profile.organization.name,
-            address: user.profile.organization.address,
-            subscriptionStatus: user.profile.organization.subscription_status,
-          }
-        : null,
-    };
+    return this.sanitizeUser(user);
   }
 
   async getUserById(userId: number, requester: any): Promise<any> {
     const user = await this.prisma.user.findUnique({
       where: { id: Number(userId) },
       include: {
-        profile: {
-          include: {
-            organization: true,
-            role: true,
-          },
-        },
+        profile: { include: { organization: true, role: true } },
+        role: true,
       },
     });
 
@@ -204,17 +176,15 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    // Owner can access all users
     if (requester.role === 'owner') {
-      return this.formatUserResponse(user);
+      return this.sanitizeUser(user);
     }
 
-    // Admin and Moderator can access only users in their organization
     if (
       (requester.role === 'admin' || requester.role === 'moderator') &&
       requester.organizationId === user.profile?.organization_id
     ) {
-      return this.formatUserResponse(user);
+      return this.sanitizeUser(user);
     }
 
     throw new ForbiddenException('You do not have access to this resource');
@@ -223,16 +193,9 @@ export class UserService {
   async updateUserById(userId: number, updateData: any, requester: any) {
     const idAsNumber = Number(userId);
     const user = await this.prisma.user.findUnique({
-      where: {
-        id: idAsNumber,
-      },
+      where: { id: idAsNumber },
       include: {
-        profile: {
-          include: {
-            role: true, // Include role details for validation
-            organization: true, // Include organization details
-          },
-        },
+        profile: { include: { role: true, organization: true } },
       },
     });
 
@@ -240,7 +203,6 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
-    // Role-based access control
     const requesterRole = requester.role;
     if (requesterRole === 'ADMIN' || requesterRole === 'MODERATOR') {
       if (requester.organization_id !== user.profile?.organization_id) {
@@ -249,21 +211,17 @@ export class UserService {
         );
       }
     }
-
     if (requesterRole === 'MODERATOR' && updateData.role_id) {
       throw new ForbiddenException('Moderators cannot update roles');
     }
 
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      data: {
-        profile: {
-          update: updateData,
-        },
-      },
+      data: { profile: { update: updateData } },
+      include: { profile: true, role: true },
     });
 
-    return updatedUser;
+    return this.sanitizeUser(updatedUser);
   }
 
   async deleteUserById(
@@ -272,21 +230,13 @@ export class UserService {
   ): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        profile: {
-          include: {
-            role: true, // Include role details for validation
-            organization: true, // Include organization details
-          },
-        },
-      },
+      include: { profile: { include: { role: true, organization: true } } },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    // Role-based access control
     const requesterRole = requester.role;
     if (requesterRole === 'ADMIN' || requesterRole === 'MODERATOR') {
       if (requester.organization_id !== user.profile?.organization_id) {
@@ -295,39 +245,19 @@ export class UserService {
         );
       }
     }
-
     if (requesterRole === 'MODERATOR' && user.profile?.role?.name !== 'USER') {
       throw new ForbiddenException('Moderators cannot delete non-user roles');
     }
 
-    await this.prisma.user.delete({
-      where: { id: userId },
-    });
+    await this.prisma.user.delete({ where: { id: userId } });
 
     return { message: 'User deleted successfully' };
-  }
-
-  private formatUserResponse(user: any): any {
-    return {
-      email: user.email,
-      fullName: `${user.profile?.first_name} ${user.profile?.last_name}`,
-      phone: user.profile?.phone,
-      role: user.profile?.role?.name,
-      organization: user.profile?.organization
-        ? {
-            name: user.profile.organization.name,
-            address: user.profile.organization.address,
-            subscriptionStatus: user.profile.organization.subscription_status,
-          }
-        : null,
-    };
   }
 
   async updateUserRole(
     email: string,
     roleId: number,
   ): Promise<{ message: string }> {
-    // Find user by email
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { profile: true },
@@ -337,16 +267,13 @@ export class UserService {
       throw new NotFoundException(`User with email ${email} not found`);
     }
 
-    // Verify the role exists
     const roleExists = await this.prisma.role.findUnique({
       where: { id: roleId },
     });
-
     if (!roleExists) {
-      throw new NotFoundException(`Role with ID ${roleExists} not found`);
+      throw new NotFoundException(`Role with ID ${roleId} not found`);
     }
 
-    // Update the user's role through the profile
     await this.prisma.profile.update({
       where: { user_id: user.id },
       data: { role_id: roleId },
@@ -384,7 +311,7 @@ export class UserService {
       where: { user_id: userId },
       data: updateData,
     });
-    console.log('user.role?.name', user.role?.name);
+
     return {
       message: 'Profile updated successfully',
       updated: {
@@ -392,6 +319,33 @@ export class UserService {
         email: user.email,
         role: user.role?.name,
       },
+    };
+  }
+
+  private sanitizeUser(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      email_verified: user.email_verified,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      role: user.role?.name || user.profile?.role?.name,
+      profile: user.profile
+        ? {
+            first_name: user.profile.first_name,
+            last_name: user.profile.last_name,
+            phone: user.profile.phone,
+            profile_image: user.profile.profile_image,
+            organization: user.profile.organization
+              ? {
+                  name: user.profile.organization.name,
+                  address: user.profile.organization.address,
+                  subscriptionStatus:
+                    user.profile.organization.subscription_status,
+                }
+              : null,
+          }
+        : null,
     };
   }
 }
