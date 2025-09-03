@@ -71,8 +71,20 @@ export class AuthService {
         user.profile?.first_name,
       );
 
+      const payload = {
+        id: user.id,
+        email: user.email,
+        firstName: user.profile?.first_name,
+        lastName: user.profile?.last_name,
+        role: user.profile?.role.name,
+      };
+
+      const accessToken = this.jwtService.sign(payload, {
+        expiresIn: '2h',
+      });
+
       this.logger.log(`Verification email re-sent to: ${email}`);
-      return { email_verified: false };
+      return { accessToken, email_verified: false };
     }
 
     const payload = {
