@@ -53,6 +53,7 @@ model School {
 
   organization_id Int
   organization    Organization  @relation(fields: [organization_id], references: [id])
+  is_paid         Boolean       @default(false)
 }
 
 

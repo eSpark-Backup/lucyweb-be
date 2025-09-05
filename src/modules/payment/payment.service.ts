@@ -218,6 +218,16 @@ export class PaymentService {
       },
     });
 
+    const schoolsToMark = await this.prisma.school.findMany({
+      where: { organization_id: organizationId, is_paid: false },
+      take: paymentRow.schools_count, // only the number of schools in this payment
+    });
+
+    await this.prisma.school.updateMany({
+      where: { id: { in: schoolsToMark.map((s) => s.id) } },
+      data: { is_paid: true },
+    });
+
     await this.prisma.organization.update({
       where: { id: organizationId },
       data: { subscription_status: 'active', last_purchase: new Date() },

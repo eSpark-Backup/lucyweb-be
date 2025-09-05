@@ -43,6 +43,7 @@ export class SchoolController {
       email: school.email,
       description: school.description,
       image: school.image,
+      is_paid: school.is_paid,
       organization: school.organization
         ? {
             id: school.organization.id,
