@@ -31,9 +31,24 @@ export class SchoolService {
     }
   }
 
-  async findAll() {
+  async findAll(userId: number) {
     try {
+      // First, fetch the profile of the logged-in user to get their organization
+      const profile = await this.prisma.profile.findUnique({
+        where: { user_id: userId },
+        select: { organization_id: true },
+      });
+
+      if (!profile?.organization_id) {
+        throw new HttpException(
+          'User is not associated with any organization',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
+      // Fetch only schools belonging to that organization
       const schools = await this.prisma.school.findMany({
+        where: { organization_id: profile.organization_id },
         include: { organization: true },
       });
 
