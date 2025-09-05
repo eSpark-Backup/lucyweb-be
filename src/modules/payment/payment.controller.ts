@@ -7,21 +7,23 @@ import {
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 
-@Controller('stripe')
+@Controller('payment')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
   /**
    * Create a Stripe checkout session
+   * - Trust orgs → charge per new schools (logic in PaymentService)
+   * - Single orgs → flat recurring subscription
    */
   @Post('create-checkout-session')
   async createCheckoutSession(
     @Body('plan') plan: 'trust' | 'single',
     @Body('organizationId') organizationId: number,
   ) {
-    if (!organizationId || !plan) {
+    if (!plan || !organizationId) {
       throw new HttpException(
-        'organizationId and plan are required',
+        'plan and organizationId are required',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -33,7 +35,7 @@ export class PaymentController {
       );
       return { success: true, data: session };
     } catch (error) {
-      console.error(error);
+      console.error('Error creating checkout session:', error);
       throw new HttpException(
         error.message || 'Failed to create checkout session',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
@@ -42,11 +44,11 @@ export class PaymentController {
   }
 
   /**
-   * Mark payment as successful
-   * Can be called via Stripe webhook or frontend after successful checkout
+   * Confirm successful payment
+   * - Can be called from webhook or client after Stripe redirect
    */
   @Post('success')
-  async paymentSuccess(@Body('sessionId') sessionId: string) {
+  async markPaymentSuccess(@Body('sessionId') sessionId: string) {
     if (!sessionId) {
       throw new HttpException('sessionId is required', HttpStatus.BAD_REQUEST);
     }
@@ -55,9 +57,9 @@ export class PaymentController {
       const result = await this.paymentService.markPaymentSuccess(sessionId);
       return { success: true, data: result };
     } catch (error) {
-      console.error(error);
+      console.error('Error marking payment success:', error);
       throw new HttpException(
-        error.message || 'Failed to mark payment as success',
+        error.message || 'Failed to confirm payment',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

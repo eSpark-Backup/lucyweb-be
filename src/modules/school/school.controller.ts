@@ -12,13 +12,22 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFile,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
+import { Req } from '@nestjs/common';
+import { Request } from 'express';
+import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
+
+interface AuthenticatedRequest extends Request {
+  user: any;
+}
 
 @Controller('schools')
+@UseGuards(JwtAuthGuard)
 export class SchoolController {
   constructor(
     private readonly schoolService: SchoolService,
@@ -81,16 +90,27 @@ export class SchoolController {
   }
 
   @Get()
-  async getAllSchools() {
+  async getAllSchools(@Req() req: AuthenticatedRequest) {
     try {
-      const { data } = await this.schoolService.findAll(); // ✅ FIXED
+      // Ensure the user object exists on the request
+      if (!req.user || !req.user.id) {
+        throw new HttpException(
+          'User information is missing',
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      // Fetch schools belonging to the currently logged-in user's organization(s)
+      const { data } = await this.schoolService.findAll(req.user.id);
+
+      // Format the response
       return {
         success: true,
         message: 'Schools fetched successfully',
         data: data.map((school) => this.formatSchoolResponse(school)),
       };
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error('Error fetching schools:', error);
       throw new HttpException(
         error.message || 'Failed to fetch schools',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,

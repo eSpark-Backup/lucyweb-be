@@ -82,15 +82,21 @@ model Subscription {
 }
 
 model Payment {
-  id              Int           @id @default(autoincrement())
-  organization_id Int
-  amount          Float
-  currency        String        @default("USD")
-  status          String        @default("pending")
-  description     String?
-  created_at      DateTime      @default(now())
-  organization    Organization  @relation(fields: [organization_id], references: [id])
+  id                     Int           @id @default(autoincrement())
+  organization_id        Int
+  amount                 Float         // total amount in GBP (not pennies)
+  currency               String        @default("GBP")
+  status                 String        @default("pending") // pending, success, failed
+  description            String?
+  stripe_session_id      String?       @unique
+  stripe_subscription_id String?
+  schools_count          Int?          // number of schools included in this payment
+  unit_price             Int?          // price per school (in pennies)
+  created_at             DateTime      @default(now())
+
+  organization           Organization  @relation(fields: [organization_id], references: [id])
 }
+
 
 model Role {
   id       Int       @id @default(autoincrement())

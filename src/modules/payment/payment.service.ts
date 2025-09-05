@@ -25,7 +25,7 @@ export class PaymentService {
   }
 
   /**
-   * Creates a Stripe checkout session for single school or trust plan
+   * Creates a Stripe checkout session based on business rules
    */
   async createCheckoutSession(
     plan: 'trust' | 'single',
@@ -33,75 +33,153 @@ export class PaymentService {
   ) {
     const organization = await this.prisma.organization.findUnique({
       where: { id: organizationId },
-      include: { schools: true }, // Include schools if needed
+      include: { schools: true },
     });
 
     if (!organization) {
       throw new HttpException('Organization not found', HttpStatus.NOT_FOUND);
     }
 
-    let amount: number;
-    let description: string;
-
     if (plan === 'trust') {
-      const schoolCount = organization.selected_school_count ?? 0;
-      if (schoolCount < 2) {
+      if (!organization.is_trust) {
         throw new HttpException(
-          'Trust must select at least 2 schools',
+          'Organization is not a trust',
           HttpStatus.BAD_REQUEST,
         );
       }
 
-      amount = schoolCount * 1000; // £10 per school in pence
-      description = `Trust Plan: £10 per school for ${schoolCount} schools`;
-    } else {
-      amount = 5000; // Single school £50 in pence
-      description = 'Single School Plan';
+      const selectedCount = organization.selected_school_count ?? 0;
+      const createdCount = (organization.schools ?? []).length;
+
+      if (createdCount === 0) {
+        throw new HttpException(
+          'At least one school must be created before payment',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Count how many schools have already been paid for
+      const totalPaidSchools = await this.prisma.payment.aggregate({
+        _sum: { schools_count: true },
+        where: { organization_id: organization.id, status: 'success' },
+      });
+      const paidSchools = totalPaidSchools._sum.schools_count ?? 0;
+
+      // Calculate new schools that require payment
+      const newSchools = createdCount - paidSchools;
+      if (newSchools <= 0) {
+        throw new HttpException(
+          'No new schools to charge for',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Determine price per school
+      let unitPrice: number;
+      if (createdCount < selectedCount) {
+        // Before reaching selected count → £50 per school
+        unitPrice = 5000; // pence
+      } else {
+        // Once created ≥ selected → £10 per school
+        unitPrice = 1000; // pence
+      }
+
+      const totalAmount = unitPrice * newSchools;
+
+      try {
+        const session = await this.stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: 'gbp',
+                product_data: {
+                  name: 'Trust Plan - Schools Subscription',
+                  description: `${newSchools} newly added school(s)`,
+                },
+                unit_amount: unitPrice,
+              },
+              quantity: newSchools,
+            },
+          ],
+          mode: 'payment', // one-time charge for new schools only
+          success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.baseUrl}/cancel`,
+          metadata: {
+            organizationId: organization.id.toString(),
+            plan,
+            newSchools: newSchools.toString(),
+            unitPrice: unitPrice.toString(),
+          },
+        });
+
+        await this.prisma.payment.create({
+          data: {
+            organization_id: organization.id,
+            amount: totalAmount / 100, // store in GBP
+            currency: 'GBP',
+            status: 'pending',
+            description: `Payment for ${newSchools} school(s)`,
+            stripe_session_id: session.id,
+            schools_count: newSchools,
+            unit_price: unitPrice,
+          },
+        });
+
+        return { id: session.id };
+      } catch (error) {
+        console.error(error);
+        throw new HttpException(
+          'Failed to create checkout session',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     }
 
-    try {
-      const session = await this.stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'gbp',
-              product_data: {
-                name:
-                  plan === 'trust'
-                    ? 'Multi Academy Trust Plan'
-                    : 'Single School Plan',
-                description,
+    // ------------------ Single School Plan ------------------
+    else {
+      const unitAmount = 5000; // £50
+      try {
+        const session = await this.stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: 'gbp',
+                product_data: { name: 'Single School Plan' },
+                unit_amount: unitAmount,
+                recurring: { interval: 'month' },
               },
-              unit_amount: amount,
-              recurring: { interval: 'month' },
+              quantity: 1,
             },
-            quantity: 1,
+          ],
+          mode: 'subscription',
+          success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.baseUrl}/cancel`,
+          metadata: { organizationId: organization.id.toString(), plan },
+        });
+
+        await this.prisma.payment.create({
+          data: {
+            organization_id: organization.id,
+            amount: unitAmount / 100,
+            currency: 'GBP',
+            status: 'pending',
+            description: 'Single school subscription',
+            stripe_session_id: session.id,
+            schools_count: 1,
+            unit_price: unitAmount,
           },
-        ],
-        mode: 'subscription',
-        success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.baseUrl}/cancel`,
-        metadata: { organizationId: organization.id.toString(), plan },
-      });
+        });
 
-      await this.prisma.payment.create({
-        data: {
-          organization_id: organization.id,
-          amount: amount / 100,
-          currency: 'GBP',
-          status: 'pending',
-          description,
-        },
-      });
-
-      return { id: session.id };
-    } catch (error) {
-      console.error(error);
-      throw new HttpException(
-        'Failed to create checkout session',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+        return { id: session.id };
+      } catch (error) {
+        console.error(error);
+        throw new HttpException(
+          'Failed to create checkout session',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     }
   }
 
@@ -118,9 +196,26 @@ export class PaymentService {
 
     const organizationId = parseInt(session.metadata.organizationId);
 
-    await this.prisma.payment.updateMany({
-      where: { organization_id: organizationId, status: 'pending' },
-      data: { status: 'success' },
+    const paymentRow = await this.prisma.payment.findFirst({
+      where: {
+        stripe_session_id: stripeSessionId,
+        organization_id: organizationId,
+      },
+    });
+
+    if (!paymentRow) {
+      throw new HttpException('Payment record not found', HttpStatus.NOT_FOUND);
+    }
+
+    await this.prisma.payment.update({
+      where: { id: paymentRow.id },
+      data: {
+        status: 'success',
+        stripe_subscription_id:
+          typeof session.subscription === 'string'
+            ? session.subscription
+            : null,
+      },
     });
 
     await this.prisma.organization.update({
