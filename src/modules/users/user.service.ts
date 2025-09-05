@@ -151,7 +151,20 @@ export class UserService {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
-        profile: { include: { organization: true, role: true } },
+        profile: {
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                is_trust: true, // added explicitly
+                trust_locked: true,
+                selected_school_count: true,
+              },
+            },
+            role: true,
+          },
+        },
         role: true,
       },
     });
