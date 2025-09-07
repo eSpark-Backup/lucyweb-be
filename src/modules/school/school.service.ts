@@ -11,13 +11,40 @@ export class SchoolService {
       if (data.organization_id) {
         data.organization_id = Number(data.organization_id);
       }
+
+      // Fetch organization
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: data.organization_id },
+        select: { id: true, is_trust: true },
+      });
+
+      if (!organization) {
+        throw new HttpException(
+          'Organization not found',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // If org is NOT a trust, allow only one school
+      if (!organization.is_trust) {
+        const existingSchool = await this.prisma.school.findFirst({
+          where: { organization_id: data.organization_id },
+        });
+
+        if (existingSchool) {
+          throw new HttpException(
+            'An individual organization can only create one school',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
       return await this.prisma.school.create({
         data,
         include: { organization: true },
       });
     } catch (error: any) {
       if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
-        // Prisma unique constraint error
         throw new HttpException(
           'A school with this email already exists',
           HttpStatus.BAD_REQUEST,
