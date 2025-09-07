@@ -343,7 +343,6 @@ export class UserService {
       created_at: user.created_at,
       updated_at: user.updated_at,
       role: user.role?.name || user.profile?.role?.name,
-      is_trust: user.profile?.organization?.is_trust ?? false,
       profile: user.profile
         ? {
             first_name: user.profile.first_name,
@@ -356,6 +355,7 @@ export class UserService {
                   address: user.profile.organization.address,
                   subscriptionStatus:
                     user.profile.organization.subscription_status,
+                  is_trust: user.profile?.organization?.is_trust ?? false,
                 }
               : null,
           }
