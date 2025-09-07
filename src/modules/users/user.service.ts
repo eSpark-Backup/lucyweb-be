@@ -157,7 +157,7 @@ export class UserService {
               select: {
                 id: true,
                 name: true,
-                is_trust: true, // added explicitly
+                is_trust: true,
                 trust_locked: true,
                 selected_school_count: true,
               },
@@ -343,6 +343,7 @@ export class UserService {
       created_at: user.created_at,
       updated_at: user.updated_at,
       role: user.role?.name || user.profile?.role?.name,
+      is_trust: user.profile?.organization?.is_trust ?? false,
       profile: user.profile
         ? {
             first_name: user.profile.first_name,
