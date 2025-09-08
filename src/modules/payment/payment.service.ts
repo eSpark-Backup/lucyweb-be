@@ -20,8 +20,7 @@ export class PaymentService {
     );
 
     this.baseUrl =
-      this.configService.get<string>('EXPOSURE_FRONTEND') ||
-      'http://localhost:3000';
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
   /**

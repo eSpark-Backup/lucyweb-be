@@ -4,6 +4,8 @@ import OpenAI from 'openai';
 @Injectable()
 export class AiService {
   private openai: OpenAI;
+  private totalRequests = 0;
+  private totalTokens = 0;
 
   constructor() {
     this.openai = new OpenAI({
@@ -25,6 +27,9 @@ export class AiService {
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
       });
+
+      this.totalRequests++;
+      this.totalTokens += response.usage?.total_tokens || 0;
 
       return response.choices[0].message.content.trim();
     } catch (error) {
@@ -73,7 +78,12 @@ export class AiService {
   }
 
   async checkUsage(): Promise<any> {
-    // Implement billing-related API logic if necessary
-    throw new Error('Usage checking has not been implemented.');
+    return {
+      status: 'ok',
+      data: {
+        total_requests: this.totalRequests,
+        total_tokens_used: this.totalTokens,
+      },
+    };
   }
 }
