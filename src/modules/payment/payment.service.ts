@@ -24,7 +24,7 @@ export class PaymentService {
   }
 
   /**
-   * Creates a Stripe checkout session based on business rules
+   * Creates a Stripe checkout session for trust or single plan
    */
   async createCheckoutSession(
     plan: 'trust' | 'single',
@@ -57,14 +57,14 @@ export class PaymentService {
         );
       }
 
-      // Count how many schools have already been paid for
+      // How many schools already paid for
       const totalPaidSchools = await this.prisma.payment.aggregate({
         _sum: { schools_count: true },
         where: { organization_id: organization.id, status: 'success' },
       });
       const paidSchools = totalPaidSchools._sum.schools_count ?? 0;
 
-      // Calculate new schools that require payment
+      // Schools that require payment
       const newSchools = createdCount - paidSchools;
       if (newSchools <= 0) {
         throw new HttpException(
@@ -73,16 +73,8 @@ export class PaymentService {
         );
       }
 
-      // Determine price per school
-      let unitPrice: number;
-      if (createdCount < selectedCount) {
-        // Before reaching selected count → £50 per school
-        unitPrice = 5000; // pence
-      } else {
-        // Once created ≥ selected → £10 per school
-        unitPrice = 1000; // pence
-      }
-
+      // Determine price per school (in pence)
+      const unitPrice = createdCount < selectedCount ? 5000 : 1000; // £50 vs £10
       const totalAmount = unitPrice * newSchools;
 
       try {
@@ -97,11 +89,12 @@ export class PaymentService {
                   description: `${newSchools} newly added school(s)`,
                 },
                 unit_amount: unitPrice,
+                recurring: { interval: 'month' },
               },
               quantity: newSchools,
             },
           ],
-          mode: 'payment', // one-time charge for new schools only
+          mode: 'subscription',
           success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${this.baseUrl}/cancel`,
           metadata: {
@@ -115,7 +108,7 @@ export class PaymentService {
         await this.prisma.payment.create({
           data: {
             organization_id: organization.id,
-            amount: totalAmount / 100, // store in GBP
+            amount: totalAmount / 100, // convert to GBP
             currency: 'GBP',
             status: 'pending',
             description: `Payment for ${newSchools} school(s)`,
@@ -137,7 +130,7 @@ export class PaymentService {
 
     // ------------------ Single School Plan ------------------
     else {
-      const unitAmount = 5000; // £50
+      const unitAmount = 5000; // £50 monthly subscription
       try {
         const session = await this.stripe.checkout.sessions.create({
           payment_method_types: ['card'],
@@ -183,7 +176,7 @@ export class PaymentService {
   }
 
   /**
-   * Mark payment as successful
+   * Mark payment as successful after webhook/session completion
    */
   async markPaymentSuccess(stripeSessionId: string) {
     const session =
@@ -214,18 +207,27 @@ export class PaymentService {
           typeof session.subscription === 'string'
             ? session.subscription
             : null,
+        stripe_invoice_id:
+          typeof (session.invoice as string | undefined) === 'string'
+            ? (session.invoice as string)
+            : null,
       },
     });
 
-    const schoolsToMark = await this.prisma.school.findMany({
-      where: { organization_id: organizationId, is_paid: false },
-      take: paymentRow.schools_count, // only the number of schools in this payment
-    });
+    // Mark schools as paid (up to the purchased count)
+    if (paymentRow.schools_count) {
+      const unpaidSchools = await this.prisma.school.findMany({
+        where: { organization_id: organizationId, is_paid: false },
+        take: paymentRow.schools_count,
+      });
 
-    await this.prisma.school.updateMany({
-      where: { id: { in: schoolsToMark.map((s) => s.id) } },
-      data: { is_paid: true },
-    });
+      if (unpaidSchools.length > 0) {
+        await this.prisma.school.updateMany({
+          where: { id: { in: unpaidSchools.map((s) => s.id) } },
+          data: { is_paid: true },
+        });
+      }
+    }
 
     await this.prisma.organization.update({
       where: { id: organizationId },

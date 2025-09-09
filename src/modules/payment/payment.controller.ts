@@ -13,8 +13,8 @@ export class PaymentController {
 
   /**
    * Create a Stripe checkout session
-   * - Trust orgs → charge per new schools (logic in PaymentService)
-   * - Single orgs → flat recurring subscription
+   * - Trust orgs → recurring per new schools
+   * - Single orgs → recurring per organization
    */
   @Post('create-checkout-session')
   async createCheckoutSession(
@@ -33,7 +33,13 @@ export class PaymentController {
         plan,
         organizationId,
       );
-      return { success: true, data: session };
+      return {
+        success: true,
+        data: {
+          sessionId: session.id,
+          checkoutUrl: `https://checkout.stripe.com/pay/${session.id}`,
+        },
+      };
     } catch (error) {
       console.error('Error creating checkout session:', error);
       throw new HttpException(
@@ -45,7 +51,7 @@ export class PaymentController {
 
   /**
    * Confirm successful payment
-   * - Can be called from webhook or client after Stripe redirect
+   * - Called after Stripe redirect OR by webhook handler
    */
   @Post('success')
   async markPaymentSuccess(@Body('sessionId') sessionId: string) {
