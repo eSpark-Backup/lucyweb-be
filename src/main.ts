@@ -1,12 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
+import * as bodyParser from 'body-parser';
 
 // Load environment variables from .env file
 dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use('/payment/webhook', bodyParser.raw({ type: 'application/json' }));
 
   // Set global prefix
   const globalPrefix = process.env.APP_VERSION ?? 'dev/api/v1';

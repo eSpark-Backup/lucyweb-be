@@ -62,37 +62,28 @@ model Organization {
   name                  String
   address               String
   is_trust              Boolean         @default(false)
-  selected_school_count Int?            
-  subscription_status   String?
-  subscription_id       Int?
+  selected_school_count Int?
+  subscription_status   String?         // active, cancelled, past_due, etc.
+  stripe_subscription_id String?        @unique // Stripe subscription id (e.g. sub_xxx)
   last_purchase         DateTime?
-  subscription          Subscription?   @relation(fields: [subscription_id], references: [id])
   profiles              Profile[]
   payments              Payment[]
-  trust_locked          Boolean   @default(false)
-  schools               School[]        
-}
-
-
-model Subscription {
-  id            Int            @id @default(autoincrement())
-  package_name  String
-  cost          Float
-  validity      Int
-  organizations Organization[]
+  schools               School[]
+  trust_locked          Boolean         @default(false)
 }
 
 model Payment {
   id                     Int           @id @default(autoincrement())
   organization_id        Int
-  amount                 Float         // total amount in GBP (not pennies)
+  amount                 Float         // GBP
   currency               String        @default("GBP")
   status                 String        @default("pending") // pending, success, failed
   description            String?
   stripe_session_id      String?       @unique
-  stripe_subscription_id String?
-  schools_count          Int?          // number of schools included in this payment
-  unit_price             Int?          // price per school (in pennies)
+  stripe_subscription_id String?       // link to subscription for renewals
+  stripe_invoice_id      String?       @unique // <-- NEW: link to invoice events
+  schools_count          Int?
+  unit_price             Int?
   created_at             DateTime      @default(now())
 
   organization           Organization  @relation(fields: [organization_id], references: [id])

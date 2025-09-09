@@ -81,11 +81,7 @@ export class OrganizationService {
         user: { email },
       },
       include: {
-        organization: {
-          include: {
-            subscription: true,
-          },
-        },
+        organization: true,
         role: true,
       },
     });
@@ -131,14 +127,6 @@ export class OrganizationService {
 
       return {
         ...baseData,
-        subscription: organization.subscription
-          ? {
-              package: organization.subscription.package_name,
-              cost: organization.subscription.cost,
-              validity: organization.subscription.validity,
-              status: organization.subscription_status,
-            }
-          : null,
         userCount,
       };
     }
