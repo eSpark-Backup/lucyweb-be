@@ -118,7 +118,7 @@ export class PaymentService {
           },
         });
 
-        return { id: session.id };
+        return { id: session.id, url: session.url };
       } catch (error) {
         console.error(error);
         throw new HttpException(
@@ -164,7 +164,7 @@ export class PaymentService {
           },
         });
 
-        return { id: session.id };
+        return { id: session.id, url: session.url };
       } catch (error) {
         console.error(error);
         throw new HttpException(

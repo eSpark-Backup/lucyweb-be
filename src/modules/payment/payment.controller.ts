@@ -37,7 +37,7 @@ export class PaymentController {
         success: true,
         data: {
           sessionId: session.id,
-          checkoutUrl: `https://checkout.stripe.com/pay/${session.id}`,
+          checkoutUrl: session.url,
         },
       };
     } catch (error) {
