@@ -49,29 +49,52 @@ export class EmailService {
     amount: number,
     currency: string,
     firstName?: string,
+    orgName?: string,
+    planName?: string,
+    paymentDate?: Date,
   ): Promise<void> {
     const subject = 'Payment Confirmation Receipt';
+    const dateString = paymentDate
+      ? paymentDate.toLocaleDateString()
+      : new Date().toLocaleDateString();
 
     const body = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;">
-      <h2 style="color: #1E90FF; text-align: center; margin-bottom: 20px;">Payment Successful</h2>
-      <p style="font-size: 15px; color: #000;">
-        ${firstName ? `Hello ${firstName},<br/><br/>` : ''}
-        Thank you for your payment. Here are your payment details:
-      </p>
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 10px;">
+    <h2 style="color: #1E90FF; text-align: center; margin-bottom: 20px;">Payment Successful</h2>
+    
+    <p style="font-size: 15px; color: #333;">
+      ${firstName ? `Hello ${firstName},<br/><br/>` : ''}
+      Thank you for your payment. Here are the details of your transaction:
+    </p>
 
-      <table style="width:100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; color: #000;">
-        <tr>
-          <td style="padding: 8px; border: 1px solid #ddd;">Amount Paid</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${amount} ${currency.toUpperCase()}</td>
-        </tr>
-      </table>
+    <table style="width:100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; color: #333;">
+      <tr>
+        <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Organization</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${orgName || '-'}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Plan / Subscription</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${planName || '-'}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Amount Paid</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${amount.toFixed(2)} ${currency.toUpperCase()}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Payment Date</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${dateString}</td>
+      </tr>
+    </table>
 
-      <p style="font-size: 13px; color: #000; margin-top: 20px; text-align: center;">
-        If you have any questions, please contact our support team.<br/>
-        <strong style="color: #1E90FF;">${process.env.APP_NAME || 'Our App'} Team</strong>
-      </p>
-    </div>
+    <p style="font-size: 14px; color: #555;">
+      We appreciate your business and look forward to serving you. If you have any questions regarding this payment, please contact our support team at
+      <a href="mailto:support@${process.env.APP_DOMAIN || 'example.com'}" style="color: #1E90FF;">support@${process.env.APP_DOMAIN || 'example.com'}</a>.
+    </p>
+
+    <p style="font-size: 12px; color: #888; text-align: center; margin-top: 30px;">
+      &copy; ${new Date().getFullYear()} ${process.env.APP_NAME || 'Our App'}. All rights reserved.
+    </p>
+  </div>
   `;
 
     await this.sendEmail(email, subject, body);
