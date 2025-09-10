@@ -2,6 +2,7 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class PaymentService {
@@ -11,6 +12,7 @@ export class PaymentService {
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private readonly emailService: EmailService,
   ) {
     this.stripe = new Stripe(
       this.configService.get<string>('STRIPE_SECRET_KEY'),
@@ -179,7 +181,7 @@ export class PaymentService {
    * Mark payment as successful after webhook/session completion
    */
   async markPaymentSuccess(stripeSessionId: string) {
-    // retrieve session and expand subscription & invoice to get all useful fields
+    // Retrieve session and expand subscription & invoice to get all useful fields
     let fullSession: Stripe.Checkout.Session;
     try {
       fullSession = await this.stripe.checkout.sessions.retrieve(
@@ -226,7 +228,7 @@ export class PaymentService {
       );
     }
 
-    // get subscription/invoice ids if available
+    // Get subscription/invoice ids if available
     const subscriptionId =
       typeof fullSession.subscription === 'string'
         ? fullSession.subscription
@@ -246,14 +248,13 @@ export class PaymentService {
       },
     });
 
-    // If not found, try to create fallback payment (use invoice to get real amount if possible)
+    // If not found, create fallback payment row
     if (!paymentRow) {
       console.warn(
         'markPaymentSuccess: no payment row found for session, creating fallback',
         stripeSessionId,
       );
 
-      // try to get amount from invoice if we have invoice id (stripe amounts are in pence)
       let amountFloat = 0;
       if (invoiceId) {
         try {
@@ -268,13 +269,12 @@ export class PaymentService {
         }
       }
 
-      // create fallback payment row
       paymentRow = await this.prisma.payment.create({
         data: {
           organization_id: organizationId,
           amount: amountFloat,
           currency: (fullSession.currency ?? 'GBP').toUpperCase(),
-          status: 'pending', // we'll update to success below
+          status: 'pending',
           description: `Checkout (fallback) session ${stripeSessionId}`,
           stripe_session_id: stripeSessionId,
           stripe_subscription_id: subscriptionId,
@@ -284,7 +284,7 @@ export class PaymentService {
       });
     }
 
-    // Update the payment row to success with subscription/invoice ids (uses update so enforces unique constraint safely)
+    // Update payment status to success
     await this.prisma.payment.update({
       where: { id: paymentRow.id },
       data: {
@@ -294,7 +294,7 @@ export class PaymentService {
       },
     });
 
-    // Mark schools as paid (up to the purchased count)
+    // Mark schools as paid
     if (paymentRow.schools_count && paymentRow.schools_count > 0) {
       const unpaidSchools = await this.prisma.school.findMany({
         where: { organization_id: organizationId, is_paid: false },
@@ -309,15 +309,47 @@ export class PaymentService {
       }
     }
 
-    // Update organization: store subscription id and update status/last_purchase
-    await this.prisma.organization.update({
+    // Update organization and include profiles with user email
+    const organization = await this.prisma.organization.update({
       where: { id: organizationId },
       data: {
         stripe_subscription_id: subscriptionId ?? undefined,
         subscription_status: 'active',
         last_purchase: new Date(),
       },
+      include: {
+        profiles: {
+          take: 1,
+          select: {
+            first_name: true,
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    // Send payment receipt if email exists
+    const recipientEmail = organization.profiles?.[0]?.user?.email;
+    const recipientName = organization.profiles?.[0]?.first_name ?? '';
+    if (recipientEmail) {
+      try {
+        await this.emailService.sendPaymentReceipt(
+          recipientEmail,
+          paymentRow.amount,
+          paymentRow.currency,
+          recipientName,
+        );
+      } catch (err) {
+        console.error(
+          'markPaymentSuccess: failed to send payment receipt',
+          err,
+        );
+      }
+    }
 
     console.log(
       'markPaymentSuccess: completed updates for session',
@@ -325,6 +357,21 @@ export class PaymentService {
       'org',
       organizationId,
     );
+
     return { success: true };
+  }
+  async sendSubscriptionExpiryReminder(
+    email: string,
+    details: {
+      firstName?: string;
+      orgName: string;
+      plan: string;
+      expiryDate: string;
+      amount: number;
+      currency: string;
+    },
+  ) {
+    // Delegates to EmailService
+    await this.emailService.sendSubscriptionExpiryReminder(email, details);
   }
 }
