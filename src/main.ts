@@ -1,19 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import * as dotenv from 'dotenv';
-import * as bodyParser from 'body-parser';
+import { AppModule } from './app.module';
 
-// Load environment variables from .env file
 dotenv.config();
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  app.use('/payment/webhook', bodyParser.raw({ type: 'application/json' }));
-
-  // Set global prefix
   const globalPrefix = process.env.APP_VERSION ?? 'dev/api/v1';
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
+
   app.setGlobalPrefix(globalPrefix);
+
   app.enableCors({
     origin: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -21,18 +21,18 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Start application
   await app.listen(process.env.PORT ?? 3000);
 
-  // Log all registered routes
+  // Debug registered routes
   const server = app.getHttpAdapter();
   const routes = server
     .getInstance()
-    ._router?.stack?.filter((layer: { route: any }) => layer.route)
-    ?.map(
-      (layer: { route: { methods: object; path: any } }) =>
-        `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`,
-    );
+    ._router?.stack.filter((layer: any) => layer.route)
+    .map((layer: any) => {
+      const method = Object.keys(layer.route.methods)[0].toUpperCase();
+      return `${method} ${layer.route.path}`;
+    });
   console.log('Registered routes:', routes);
 }
+
 bootstrap();

@@ -179,43 +179,123 @@ export class PaymentService {
    * Mark payment as successful after webhook/session completion
    */
   async markPaymentSuccess(stripeSessionId: string) {
-    const session =
-      await this.stripe.checkout.sessions.retrieve(stripeSessionId);
-
-    if (!session?.metadata?.organizationId) {
-      throw new HttpException('Invalid Stripe session', HttpStatus.BAD_REQUEST);
+    // retrieve session and expand subscription & invoice to get all useful fields
+    let fullSession: Stripe.Checkout.Session;
+    try {
+      fullSession = await this.stripe.checkout.sessions.retrieve(
+        stripeSessionId,
+        {
+          expand: ['subscription', 'invoice'],
+        },
+      );
+    } catch (err) {
+      console.error(
+        'markPaymentSuccess: failed to retrieve session',
+        stripeSessionId,
+        err,
+      );
+      throw new HttpException(
+        'Failed to retrieve Stripe session',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    const organizationId = parseInt(session.metadata.organizationId);
+    const metadataOrgId = fullSession.metadata?.organizationId;
+    if (!metadataOrgId) {
+      console.error(
+        'markPaymentSuccess: missing organizationId metadata for session',
+        stripeSessionId,
+      );
+      throw new HttpException(
+        'Invalid Stripe session (missing metadata)',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
-    const paymentRow = await this.prisma.payment.findFirst({
+    const organizationId = parseInt(metadataOrgId, 10);
+    if (!Number.isFinite(organizationId)) {
+      console.error(
+        'markPaymentSuccess: invalid organizationId metadata',
+        metadataOrgId,
+        'session',
+        stripeSessionId,
+      );
+      throw new HttpException(
+        'Invalid organizationId in session metadata',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // get subscription/invoice ids if available
+    const subscriptionId =
+      typeof fullSession.subscription === 'string'
+        ? fullSession.subscription
+        : ((fullSession.subscription as Stripe.Subscription | null)?.id ??
+          null);
+
+    const invoiceId =
+      typeof fullSession.invoice === 'string'
+        ? fullSession.invoice
+        : ((fullSession.invoice as any)?.id ?? null);
+
+    // Try to find existing payment row
+    let paymentRow = await this.prisma.payment.findFirst({
       where: {
         stripe_session_id: stripeSessionId,
         organization_id: organizationId,
       },
     });
 
+    // If not found, try to create fallback payment (use invoice to get real amount if possible)
     if (!paymentRow) {
-      throw new HttpException('Payment record not found', HttpStatus.NOT_FOUND);
+      console.warn(
+        'markPaymentSuccess: no payment row found for session, creating fallback',
+        stripeSessionId,
+      );
+
+      // try to get amount from invoice if we have invoice id (stripe amounts are in pence)
+      let amountFloat = 0;
+      if (invoiceId) {
+        try {
+          const invoice = await this.stripe.invoices.retrieve(invoiceId);
+          amountFloat = (invoice.amount_paid ?? invoice.amount_due ?? 0) / 100;
+        } catch (err) {
+          console.warn(
+            'markPaymentSuccess: failed to retrieve invoice to determine amount',
+            invoiceId,
+            err,
+          );
+        }
+      }
+
+      // create fallback payment row
+      paymentRow = await this.prisma.payment.create({
+        data: {
+          organization_id: organizationId,
+          amount: amountFloat,
+          currency: (fullSession.currency ?? 'GBP').toUpperCase(),
+          status: 'pending', // we'll update to success below
+          description: `Checkout (fallback) session ${stripeSessionId}`,
+          stripe_session_id: stripeSessionId,
+          stripe_subscription_id: subscriptionId,
+          stripe_invoice_id: invoiceId ?? undefined,
+          created_at: new Date(),
+        },
+      });
     }
 
+    // Update the payment row to success with subscription/invoice ids (uses update so enforces unique constraint safely)
     await this.prisma.payment.update({
       where: { id: paymentRow.id },
       data: {
         status: 'success',
-        stripe_subscription_id:
-          typeof session.subscription === 'string'
-            ? session.subscription
-            : null,
-        stripe_invoice_id:
-          typeof (session.invoice as string | undefined) === 'string'
-            ? (session.invoice as string)
-            : null,
+        stripe_subscription_id: subscriptionId ?? undefined,
+        stripe_invoice_id: invoiceId ?? undefined,
       },
     });
 
     // Mark schools as paid (up to the purchased count)
-    if (paymentRow.schools_count) {
+    if (paymentRow.schools_count && paymentRow.schools_count > 0) {
       const unpaidSchools = await this.prisma.school.findMany({
         where: { organization_id: organizationId, is_paid: false },
         take: paymentRow.schools_count,
@@ -229,11 +309,22 @@ export class PaymentService {
       }
     }
 
+    // Update organization: store subscription id and update status/last_purchase
     await this.prisma.organization.update({
       where: { id: organizationId },
-      data: { subscription_status: 'active', last_purchase: new Date() },
+      data: {
+        stripe_subscription_id: subscriptionId ?? undefined,
+        subscription_status: 'active',
+        last_purchase: new Date(),
+      },
     });
 
+    console.log(
+      'markPaymentSuccess: completed updates for session',
+      stripeSessionId,
+      'org',
+      organizationId,
+    );
     return { success: true };
   }
 }
