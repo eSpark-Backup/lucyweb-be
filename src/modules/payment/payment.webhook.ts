@@ -14,6 +14,7 @@ import Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { PaymentService } from './payment.service';
+import { EmailService } from '../email/email.service';
 
 @Controller('payment')
 export class PaymentWebhookController {
@@ -165,6 +166,67 @@ export class PaymentWebhookController {
               subscription_status: subscription.status,
             },
           });
+          break;
+        }
+
+        // Notify users about upcoming subscription expiry
+        case 'invoice.upcoming': {
+          const invoice = event.data.object as any; // workaround for TS typing
+
+          const subscriptionId = invoice.subscription ?? null;
+          if (!subscriptionId) break;
+
+          const org = await this.prisma.organization.findFirst({
+            where: { stripe_subscription_id: subscriptionId },
+            include: {
+              profiles: {
+                select: {
+                  first_name: true,
+                  user: { select: { email: true } },
+                },
+              },
+            },
+          });
+
+          if (!org || org.profiles.length === 0) {
+            console.warn(
+              `No profiles with email found for organization ${org?.id} (subscription ${subscriptionId})`,
+            );
+            break;
+          }
+
+          for (const profile of org.profiles) {
+            const recipientEmail = profile.user?.email;
+            const recipientName = profile.first_name ?? '';
+            if (!recipientEmail) continue;
+
+            const lineItem = invoice.lines.data[0] as any;
+            const planName = lineItem?.price?.nickname ?? 'Subscription';
+            const amount = (invoice.amount_due ?? 0) / 100;
+            const currency = (invoice.currency ?? 'GBP').toUpperCase();
+            const expiryDate = new Date(
+              (invoice.next_payment_attempt ?? 0) * 1000,
+            ).toDateString();
+
+            try {
+              await this.paymentService.sendSubscriptionExpiryReminder(
+                recipientEmail,
+                {
+                  firstName: recipientName,
+                  orgName: org.name,
+                  plan: planName,
+                  expiryDate,
+                  amount,
+                  currency,
+                },
+              );
+            } catch (err) {
+              console.error(
+                `Failed to send subscription expiry reminder to ${recipientEmail}`,
+                err,
+              );
+            }
+          }
           break;
         }
 
