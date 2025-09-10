@@ -7,12 +7,13 @@ import {
   Res,
   HttpException,
   HttpStatus,
-  Inject,
 } from '@nestjs/common';
+import { RawBodyRequest } from '@nestjs/common';
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { PaymentService } from './payment.service';
 
 @Controller('payment')
 export class PaymentWebhookController {
@@ -21,6 +22,7 @@ export class PaymentWebhookController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly paymentService: PaymentService,
   ) {
     this.stripe = new Stripe(this.config.get<string>('STRIPE_SECRET_KEY')!, {
       apiVersion: '2025-03-31.basil',
@@ -28,22 +30,24 @@ export class PaymentWebhookController {
   }
 
   @Post('webhook')
-  async handleStripeWebhook(@Req() req: Request, @Res() res: Response) {
+  async handleStripeWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Res() res: Response,
+  ) {
     const sig = (req.headers['stripe-signature'] as string) || '';
-    const webhookSecret = this.config.get<string>(
-      'STRIPE_WEBHOOK_SECRET',
-    ) as string;
+    const webhookSecret = this.config.get<string>('STRIPE_WEBHOOK_SECRET')!;
 
     let event: Stripe.Event;
     try {
+      // ✅ Use rawBody (Buffer), not parsed body
       event = this.stripe.webhooks.constructEvent(
-        req.body as any,
+        req.rawBody,
         sig,
         webhookSecret,
       );
     } catch (err: any) {
       console.error(
-        '⚠️  Webhook signature verification failed.',
+        '⚠️  Webhook signature verification failed:',
         err?.message || err,
       );
       return res
@@ -53,44 +57,46 @@ export class PaymentWebhookController {
 
     try {
       switch (event.type) {
-        // first time checkout subscription created via Checkout
+        // First-time checkout subscription created via Checkout
         case 'checkout.session.completed': {
           const session = event.data.object as Stripe.Checkout.Session;
-          // session.subscription is a string (subscription id) for subscription checkouts
-          const subscriptionId = session.subscription as unknown as
-            | string
-            | undefined;
-          const orgIdMeta = session.metadata?.organizationId;
+          console.log(
+            'Received checkout.session.completed for session:',
+            session.id,
+          );
 
-          if (subscriptionId && orgIdMeta) {
-            const orgId = Number(orgIdMeta);
-            if (Number.isFinite(orgId)) {
-              await this.prisma.organization.updateMany({
-                where: { id: orgId },
-                data: {
-                  stripe_subscription_id: subscriptionId,
-                  subscription_status: 'active',
-                  last_purchase: new Date(),
-                },
-              });
+          try {
+            if (session.id) {
+              // delegate all DB updates to PaymentService
+              await this.paymentService.markPaymentSuccess(session.id);
+              console.log(
+                'checkout.session.completed handled successfully for session:',
+                session.id,
+              );
             } else {
               console.warn(
-                'checkout.session.completed: organizationId metadata is not a number',
-                orgIdMeta,
+                'checkout.session.completed: missing session id in event',
               );
             }
+          } catch (err) {
+            // log full error so we can see why it failed
+            console.error(
+              'checkout.session.completed: failed to mark payment success for session:',
+              session.id,
+              err,
+            );
           }
+
           break;
         }
 
-        // recurring invoice paid (initial invoice for subscription also triggers this)
+        // Recurring invoice paid
         case 'invoice.payment_succeeded': {
           const invoice = event.data.object as Stripe.Invoice;
-          // Stripe typings may present subscription as string | Subscription | undefined
           const subscriptionId =
             ((invoice as any).subscription as string | null) ?? null;
+
           if (subscriptionId) {
-            // find org by stripe_subscription_id and record payment
             const org = await this.prisma.organization.findFirst({
               where: { stripe_subscription_id: subscriptionId },
               select: { id: true },
@@ -110,7 +116,6 @@ export class PaymentWebhookController {
                 },
               });
 
-              // ensure organization is active and update last_purchase
               await this.prisma.organization.update({
                 where: { id: org.id },
                 data: {
@@ -127,7 +132,7 @@ export class PaymentWebhookController {
           break;
         }
 
-        // invoice payment failed → mark org past_due
+        // Invoice payment failed → mark org past_due
         case 'invoice.payment_failed': {
           const invoice = event.data.object as Stripe.Invoice;
           const subscriptionId =
@@ -141,7 +146,7 @@ export class PaymentWebhookController {
           break;
         }
 
-        // subscription cancelled
+        // Subscription cancelled
         case 'customer.subscription.deleted': {
           const subscription = event.data.object as Stripe.Subscription;
           await this.prisma.organization.updateMany({
@@ -151,7 +156,7 @@ export class PaymentWebhookController {
           break;
         }
 
-        // subscription updated (status changes, trial end, etc.)
+        // Subscription updated
         case 'customer.subscription.updated': {
           const subscription = event.data.object as Stripe.Subscription;
           await this.prisma.organization.updateMany({
@@ -164,19 +169,16 @@ export class PaymentWebhookController {
         }
 
         default:
-          console.log(`Received unhandled event type: ${event.type}`);
+          console.log(`Unhandled event type: ${event.type}`);
       }
 
-      // acknowledge to Stripe
       return res.status(200).json({ received: true });
     } catch (err) {
-      console.error('Webhook handler error', err);
-      // Respond with 500 so Stripe will retry
+      console.error('Webhook handler error:', err);
       return res.status(500).send('Webhook handling failed');
     }
   }
 
-  // helper (kept if you want to reuse)
   private async findOrganizationIdByStripeSubscription(
     subscriptionId: string,
   ): Promise<number> {
@@ -184,11 +186,12 @@ export class PaymentWebhookController {
       where: { stripe_subscription_id: subscriptionId },
       select: { id: true },
     });
-    if (!org)
+    if (!org) {
       throw new HttpException(
         'Organization not found for subscription',
         HttpStatus.NOT_FOUND,
       );
+    }
     return org.id;
   }
 }
