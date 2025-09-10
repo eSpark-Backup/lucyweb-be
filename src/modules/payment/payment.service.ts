@@ -342,6 +342,9 @@ export class PaymentService {
           paymentRow.amount,
           paymentRow.currency,
           recipientName,
+          organization.name, // orgName
+          paymentRow.description, // or derive a proper planName if available
+          new Date(), // paymentDate
         );
       } catch (err) {
         console.error(
