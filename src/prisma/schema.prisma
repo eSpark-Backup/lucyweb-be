@@ -73,21 +73,28 @@ model Organization {
 }
 
 model Payment {
-  id                     Int           @id @default(autoincrement())
+  id                     Int          @id @default(autoincrement())
   organization_id        Int
-  amount                 Float         // GBP
-  currency               String        @default("GBP")
-  status                 String        @default("pending") // pending, success, failed
+  amount                 Float        // total amount in GBP
+  currency               String       @default("GBP")
+  status                 String       @default("pending") // pending | success | failed
   description            String?
-  stripe_session_id      String?       @unique
-  stripe_subscription_id String?       // link to subscription for renewals
-  stripe_invoice_id      String?       @unique // <-- NEW: link to invoice events
-  schools_count          Int?
-  unit_price             Int?
-  created_at             DateTime      @default(now())
+  stripe_session_id      String?      @unique
+  stripe_subscription_id String?      // Stripe subscription for recurring billing
+  stripe_invoice_id      String?      @unique
+  schools_count          Int?         // number of schools covered in this payment
+  unit_price             Float?       // per-school price in GBP (e.g. 50.0 or 10.0)
+  created_at             DateTime     @default(now())
 
-  organization           Organization  @relation(fields: [organization_id], references: [id])
+  // Relations
+  organization           Organization @relation(fields: [organization_id], references: [id])
+
+  @@index([organization_id, status])
+  @@index([stripe_session_id])
+  @@index([stripe_invoice_id])
 }
+
+
 
 
 model Role {
