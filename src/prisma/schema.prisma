@@ -36,7 +36,7 @@ model School {
   phone           String
   description     String?
   email           String        @unique
-  password        String        // NEW: direct password for school login
+  password        String?       
   image           String?
   created_at      DateTime      @default(now())
   updated_at      DateTime      @updatedAt
