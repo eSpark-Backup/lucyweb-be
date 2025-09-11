@@ -48,8 +48,13 @@ export class UserService {
 
     let roleId: number;
     if (role) {
-      const roleRecord = await this.prisma.role.findUnique({
-        where: { name: role },
+      const roleRecord = await this.prisma.role.findFirst({
+        where: {
+          name: {
+            equals: role.toLowerCase(),
+            mode: 'insensitive', // ✅ makes it case-insensitive
+          },
+        },
       });
       if (!roleRecord) {
         throw new BadRequestException(`Invalid role: ${role}`);
@@ -76,6 +81,7 @@ export class UserService {
           },
         },
       },
+      include: { role: true },
     });
 
     await this.emailService.sendVerificationEmail(
@@ -88,6 +94,7 @@ export class UserService {
       {
         id: newUser.id,
         email: newUser.email,
+        role: newUser.role.name.toLowerCase(),
       },
       {
         secret: process.env.JWT_SECRET, // ✅ explicitly pass secret
