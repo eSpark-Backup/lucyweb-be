@@ -13,12 +13,12 @@ import {
   UseInterceptors,
   UploadedFile,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
-import { Req } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 
@@ -52,10 +52,10 @@ export class SchoolController {
             trust_locked: school.organization.trust_locked,
             selected_school_count:
               school.organization.selected_school_count ?? null,
-            unit_price: school.organization.unit_price ?? null, // raw unit price (nullable)
+            unit_price: school.organization.unit_price ?? null,
           }
         : null,
-      cost: school.cost ?? null, // cost returned from service (normalized)
+      cost: school.cost ?? null,
       created_at: school.created_at,
       updated_at: school.updated_at,
     };
@@ -73,8 +73,10 @@ export class SchoolController {
         imageUrl = await this.storageService.uploadFile(file);
       }
 
+      // pass optional password along to service if provided
       const school = await this.schoolService.createSchool({
         ...createSchoolDto,
+        password: createSchoolDto.password || undefined,
         image: imageUrl || createSchoolDto.image,
       });
 
@@ -95,7 +97,6 @@ export class SchoolController {
   @Get()
   async getAllSchools(@Req() req: AuthenticatedRequest) {
     try {
-      // Ensure the user object exists on the request
       if (!req.user || !req.user.id) {
         throw new HttpException(
           'User information is missing',
@@ -103,10 +104,7 @@ export class SchoolController {
         );
       }
 
-      // Fetch schools belonging to the currently logged-in user's organization(s)
       const { data } = await this.schoolService.findAll(req.user.id);
-
-      // Format the response
       return {
         success: true,
         message: 'Schools fetched successfully',
@@ -151,6 +149,8 @@ export class SchoolController {
         const imageUrl = await this.storageService.uploadFile(file);
         updateData.image = imageUrl;
       }
+      // ignore password updates through this endpoint
+      delete (updateData as any).password;
 
       const updated = await this.schoolService.updateSchool(id, updateData);
       return {

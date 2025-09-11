@@ -32,6 +32,10 @@ export class CreateSchoolDto {
   @IsOptional()
   image?: string;
 
+  @IsString()
+  @IsOptional()
+  password?: string;
+
   @IsInt()
   @IsNotEmpty()
   organization_id: number;

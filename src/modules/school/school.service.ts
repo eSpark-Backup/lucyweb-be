@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class SchoolService {
@@ -26,7 +27,6 @@ export class SchoolService {
     amount?: number | null,
   ): number | null {
     if (unitPrice == null) return amount ?? null;
-    // heuristics: if stored as pence (1000 -> £10) convert
     if (unitPrice > 100) {
       return unitPrice / 100;
     }
@@ -66,8 +66,29 @@ export class SchoolService {
         }
       }
 
+      // ---- handle school user creation when trust org and password provided ----
+      let userId: number | null = null;
+      if (organization.is_trust && data.password) {
+        const hashed = await bcrypt.hash(data.password, 10);
+        const newUser = await this.prisma.user.create({
+          data: {
+            email: data.email,
+            password: hashed,
+            role: { connect: { name: 'School' } },
+          },
+        });
+        userId = newUser.id;
+        delete data.password; // avoid saving plain password in school table
+      } else {
+        // remove password if non-trust or not provided
+        delete data.password;
+      }
+
       const created = await this.prisma.school.create({
-        data,
+        data: {
+          ...data,
+          user_id: userId ?? null,
+        },
         include: { organization: true },
       });
 
@@ -88,7 +109,7 @@ export class SchoolService {
 
       const schoolWithBilling = {
         ...created,
-        cost, // readable cost for frontend
+        cost,
         organization: created.organization
           ? {
               ...created.organization,
@@ -116,7 +137,6 @@ export class SchoolService {
 
   async findAll(userId: number) {
     try {
-      // First, fetch the profile of the logged-in user to get their organization
       const profile = await this.prisma.profile.findUnique({
         where: { user_id: userId },
         select: { organization_id: true },
@@ -129,13 +149,11 @@ export class SchoolService {
         );
       }
 
-      // Fetch only schools belonging to that organization
       const schools = await this.prisma.school.findMany({
         where: { organization_id: profile.organization_id },
         include: { organization: true },
       });
 
-      // Find billing for the single organization (optimization: only one org in this typical case)
       const orgId = profile.organization_id;
       const payment = await this.getLatestSuccessfulPayment(orgId);
       const selected_school_count = payment?.schools_count ?? null;
@@ -215,6 +233,7 @@ export class SchoolService {
       if (data.organization_id) {
         data.organization_id = Number(data.organization_id);
       }
+      delete data.password; // prevent accidental overwrite
       const updated = await this.prisma.school.update({
         where: { id },
         data,
@@ -266,13 +285,11 @@ export class SchoolService {
     }
   }
 
-  // Example place where `.join` caused issue (FIXED with cast)
   async someMethodUsingJoin() {
     const result = await this.prisma.school.findMany({
       include: { organization: true },
     });
-
-    const orgNames: string[] = result.map((r) => r.organization?.name || ''); // ✅ Explicitly typed
+    const orgNames: string[] = result.map((r) => r.organization?.name || '');
     return orgNames.join(', ');
   }
 
@@ -280,8 +297,7 @@ export class SchoolService {
     const result = await this.prisma.school.findMany({
       include: { organization: true },
     });
-
-    const schoolNames: string[] = result.map((r) => r.name || ''); // ✅ Explicitly typed
+    const schoolNames: string[] = result.map((r) => r.name || '');
     return schoolNames.join('; ');
   }
 }

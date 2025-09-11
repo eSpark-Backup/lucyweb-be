@@ -76,7 +76,7 @@ export class EventService {
   }
 
   async createEvent(
-    data: Prisma.EventCreateInput,
+    data: Prisma.EventCreateInput & { school_id?: number },
     userId: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
@@ -108,9 +108,15 @@ export class EventService {
     let imageUrl: string | undefined;
     if (file) imageUrl = await this.storageService.uploadFile(file);
 
+    // Optional school association
+    const schoolConnect = data.school_id
+      ? { school: { connect: { id: data.school_id } } }
+      : {};
+
     return this.prisma.event.create({
       data: {
         ...data,
+        ...schoolConnect,
         time_span: fixedTimeSpan,
         image: imageUrl,
         user: { connect: { id: userId } },
@@ -121,7 +127,7 @@ export class EventService {
 
   async updateEvent(
     id: number,
-    data: Prisma.EventUpdateInput,
+    data: Prisma.EventUpdateInput & { school_id?: number | null },
     file?: Express.Multer.File,
   ): Promise<Event> {
     if (data.date_time) {
@@ -140,7 +146,7 @@ export class EventService {
     let imageUrl: string | undefined;
     if (file) imageUrl = await this.storageService.uploadFile(file);
 
-    const { contents, time_span, ...eventData } = data;
+    const { contents, time_span, school_id, ...eventData } = data;
     let existingImage = null;
     if (!file) {
       const existingEvent = await this.prisma.event.findUnique({
@@ -150,12 +156,17 @@ export class EventService {
       existingImage = existingEvent?.image || null;
     }
 
-    const updatePayload = {
+    const updatePayload: Prisma.EventUpdateInput = {
       ...eventData,
       ...(typeof time_span === 'string'
         ? { time_span: parseInt(time_span, 10) }
         : { time_span }),
       image: imageUrl || existingImage,
+      ...(school_id !== undefined
+        ? school_id === null
+          ? { school: { disconnect: true } }
+          : { school: { connect: { id: school_id as number } } }
+        : {}),
     };
 
     return this.prisma.event.update({

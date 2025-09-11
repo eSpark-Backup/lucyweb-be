@@ -17,6 +17,10 @@ export class CreateEventDto {
   @IsNotEmpty()
   time_span: number;
 
+  @IsInt()
+  @IsOptional()
+  school_id?: number;
+
   @IsString()
   @IsOptional()
   type?: string;
