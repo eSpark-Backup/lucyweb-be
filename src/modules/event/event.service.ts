@@ -80,12 +80,13 @@ export class EventService {
     userId: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    const userExists = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!userExists)
+    // ✅ Ensure the user exists
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
       throw new Error('User not found. Please check the userId.');
+    }
 
+    // ✅ Validate and normalize event date
     const eventDate = new Date(data.date_time);
     if (isNaN(eventDate.getTime())) {
       throw new BadRequestException(
@@ -95,31 +96,34 @@ export class EventService {
     if (eventDate.getTime() < Date.now()) {
       throw new BadRequestException('Cannot create events in the past.');
     }
-    data.date_time = new Date(eventDate.getTime());
 
+    // ✅ Validate/convert time_span
     const fixedTimeSpan =
-      typeof data?.time_span === 'string'
-        ? parseInt(data?.time_span, 10)
-        : data?.time_span;
+      typeof (data as any).time_span === 'string'
+        ? parseInt((data as any).time_span, 10)
+        : (data as any).time_span;
     if (isNaN(fixedTimeSpan)) {
       throw new BadRequestException('Invalid time_span: must be a number.');
     }
 
+    // ✅ Optional image upload
     let imageUrl: string | undefined;
-    if (file) imageUrl = await this.storageService.uploadFile(file);
+    if (file) {
+      imageUrl = await this.storageService.uploadFile(file);
+    }
 
-    // Optional school association
-    const schoolConnect = data.school_id
-      ? { school: { connect: { id: data.school_id } } }
-      : {};
+    // ✅ Destructure to remove school_id before sending to Prisma
+    const { school_id, ...rest } = data;
 
+    // ✅ Final create
     return this.prisma.event.create({
       data: {
-        ...data,
-        ...schoolConnect,
+        ...rest, // all valid EventCreateInput fields
+        date_time: eventDate,
         time_span: fixedTimeSpan,
         image: imageUrl,
         user: { connect: { id: userId } },
+        ...(school_id && { school: { connect: { id: school_id } } }), // relation connect
       },
       include: { contents: true },
     });

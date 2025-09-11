@@ -30,7 +30,7 @@ export class EventController {
   constructor(private readonly eventsService: EventService) {}
 
   @Get('count-by-day')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getEventCountByDay(
     @Req() req,
     @Query('year') year: string,
@@ -44,19 +44,19 @@ export class EventController {
   }
 
   @Get('by-day')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getEventsByDay(@Req() req, @Query('date') date: string) {
     return this.eventsService.getEventsByDay(date, req.user.id);
   }
 
   @Get('me')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getMyEvents(@Req() req) {
     return this.eventsService.getAllEventsByUserId(req.user.id);
   }
 
   @Get(':id')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getEventById(@Param('id') id: string) {
     const event = await this.eventsService.getEventById(parseInt(id));
     if (!event) {
@@ -66,7 +66,7 @@ export class EventController {
   }
 
   @Post()
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   @UseInterceptors(FileInterceptor('image'))
   async createEvent(
     @Body() data: Prisma.EventCreateInput,
@@ -77,7 +77,7 @@ export class EventController {
   }
 
   @Put(':id')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   @UseInterceptors(FileInterceptor('image'))
   async updateEvent(
     @Param('id') id: string,
@@ -94,7 +94,7 @@ export class EventController {
   }
 
   @Get(':eventId/contents')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getContents(
     @Param('eventId', ParseIntPipe) eventId: number,
   ): Promise<Content[]> {
@@ -102,7 +102,7 @@ export class EventController {
   }
 
   @Post(':eventId/contents')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async createContent(
     @Req() req,
     @Param('eventId', ParseIntPipe) eventId: number,
@@ -116,7 +116,7 @@ export class EventController {
   }
 
   @Put(':eventId/contents/:id')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async updateContent(
     @Req() req,
     @Param('id', ParseIntPipe) id: number,
@@ -150,7 +150,7 @@ export class EventController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     return { filePath: await this.eventsService.uploadContentFile(file) };
   }
@@ -166,7 +166,7 @@ export class EventController {
   }
 
   @Get('content-recipients/me')
-  @Roles(Role.USER, Role.ADMIN)
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getMyRecipients(@Req() req) {
     return this.eventsService.getAllUniqueRecipientsByUser(req.user.id);
   }

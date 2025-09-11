@@ -1,9 +1,12 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
+import { Roles } from 'src/common/decorator/roles.decorator';
+import { Role } from 'src/common/schema/roles.enum';
 
-@Controller('ai')
 @UseGuards(JwtAuthGuard)
+@Roles(Role.ADMIN, Role.USER, Role.MODERATOR)
+@Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 

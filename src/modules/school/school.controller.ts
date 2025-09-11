@@ -21,13 +21,16 @@ import { StorageService } from '../storage/storage.service';
 import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
+import { Roles } from 'src/common/decorator/roles.decorator';
+import { Role } from 'src/common/schema/roles.enum';
 
 interface AuthenticatedRequest extends Request {
   user: any;
 }
 
-@Controller('schools')
 @UseGuards(JwtAuthGuard)
+@Roles(Role.ADMIN, Role.USER, Role.MODERATOR)
+@Controller('schools')
 export class SchoolController {
   constructor(
     private readonly schoolService: SchoolService,
