@@ -81,7 +81,7 @@ export class UserService {
           },
         },
       },
-      include: { role: true },
+      include: { role: true, profile: { include: { role: true } } },
     });
 
     await this.emailService.sendVerificationEmail(
@@ -94,7 +94,7 @@ export class UserService {
       {
         id: newUser.id,
         email: newUser.email,
-        role: newUser.role.name.toLowerCase(),
+        role: newUser.profile?.role?.name.toLowerCase(),
       },
       {
         secret: process.env.JWT_SECRET, // ✅ explicitly pass secret
