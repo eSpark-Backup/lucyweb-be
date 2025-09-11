@@ -74,7 +74,7 @@ export class SchoolService {
           data: {
             email: data.email,
             password: hashed,
-            role: { connect: { name: 'School' } },
+            role: { connect: { name: 'school' } },
           },
         });
         userId = newUser.id;

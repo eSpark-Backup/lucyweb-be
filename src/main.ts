@@ -1,7 +1,9 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as dotenv from 'dotenv';
 import { AppModule } from './app.module';
+import { RolesGuard } from './common/guard/roles.guard';
+import { JwtService } from '@nestjs/jwt';
 
 dotenv.config();
 
@@ -11,6 +13,12 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+
+  const reflector = app.get(Reflector);
+  const jwtService = app.get(JwtService);
+
+  // Apply RolesGuard globally
+  app.useGlobalGuards(new RolesGuard(reflector, jwtService));
 
   app.setGlobalPrefix(globalPrefix);
 
@@ -22,17 +30,6 @@ async function bootstrap() {
   });
 
   await app.listen(process.env.PORT ?? 3000);
-
-  // Debug registered routes
-  const server = app.getHttpAdapter();
-  const routes = server
-    .getInstance()
-    ._router?.stack.filter((layer: any) => layer.route)
-    .map((layer: any) => {
-      const method = Object.keys(layer.route.methods)[0].toUpperCase();
-      return `${method} ${layer.route.path}`;
-    });
-  console.log('Registered routes:', routes);
 }
 
 bootstrap();
