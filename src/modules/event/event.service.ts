@@ -80,8 +80,11 @@ export class EventService {
     userId: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    // ✅ Ensure the user exists
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    // ✅ Ensure the user exists and include linked school
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { school: true },
+    });
     if (!user) {
       throw new Error('User not found. Please check the userId.');
     }
@@ -112,6 +115,9 @@ export class EventService {
       imageUrl = await this.storageService.uploadFile(file);
     }
 
+    // ✅ Determine school ID: prefer request body, fallback to logged-in user's school
+    const schoolIdToConnect = data.school_id ?? user.school?.id;
+
     // ✅ Destructure to remove school_id before sending to Prisma
     const { school_id, ...rest } = data;
 
@@ -123,7 +129,9 @@ export class EventService {
         time_span: fixedTimeSpan,
         image: imageUrl,
         user: { connect: { id: userId } },
-        ...(school_id && { school: { connect: { id: school_id } } }), // relation connect
+        ...(schoolIdToConnect
+          ? { school: { connect: { id: schoolIdToConnect } } }
+          : {}), // connect school if available
       },
       include: { contents: true },
     });
@@ -132,8 +140,10 @@ export class EventService {
   async updateEvent(
     id: number,
     data: Prisma.EventUpdateInput & { school_id?: number | null },
+    userId?: number, // optional, pass logged-in user's ID
     file?: Express.Multer.File,
   ): Promise<Event> {
+    // ✅ Validate date_time if provided
     if (data.date_time) {
       const eventDate = new Date(data.date_time as string);
       if (isNaN(eventDate.getTime())) {
@@ -147,11 +157,22 @@ export class EventService {
       data.date_time = new Date(eventDate.getTime());
     }
 
+    // ✅ Handle image upload
     let imageUrl: string | undefined;
     if (file) imageUrl = await this.storageService.uploadFile(file);
 
-    const { contents, time_span, school_id, ...eventData } = data;
-    let existingImage = null;
+    // ✅ Determine school ID: prefer request body, fallback to logged-in user's school
+    let schoolIdToConnect: number | null | undefined = data.school_id;
+    if (userId && schoolIdToConnect === undefined) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { school: true },
+      });
+      schoolIdToConnect = user?.school?.id ?? undefined;
+    }
+
+    // ✅ Keep existing image if none uploaded
+    let existingImage: string | null = null;
     if (!file) {
       const existingEvent = await this.prisma.event.findUnique({
         where: { id },
@@ -160,16 +181,18 @@ export class EventService {
       existingImage = existingEvent?.image || null;
     }
 
+    const { contents, time_span, school_id, ...eventData } = data;
+
     const updatePayload: Prisma.EventUpdateInput = {
       ...eventData,
       ...(typeof time_span === 'string'
         ? { time_span: parseInt(time_span, 10) }
         : { time_span }),
       image: imageUrl || existingImage,
-      ...(school_id !== undefined
-        ? school_id === null
+      ...(schoolIdToConnect !== undefined
+        ? schoolIdToConnect === null
           ? { school: { disconnect: true } }
-          : { school: { connect: { id: school_id as number } } }
+          : { school: { connect: { id: schoolIdToConnect } } }
         : {}),
     };
 

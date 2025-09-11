@@ -81,10 +81,12 @@ export class EventController {
   @UseInterceptors(FileInterceptor('image'))
   async updateEvent(
     @Param('id') id: string,
-    @Body() data: Prisma.EventUpdateInput,
+    @Body() data: Prisma.EventUpdateInput & { school_id?: number | null },
     @UploadedFile() file: Express.Multer.File,
+    @Req() req,
   ) {
-    return this.eventsService.updateEvent(+id, data, file);
+    // pass userId from logged-in user, then file
+    return this.eventsService.updateEvent(+id, data, req.user.id, file);
   }
 
   @Delete(':id')
