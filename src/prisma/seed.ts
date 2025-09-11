@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 async function main() {
   // Seed Roles
   const roles = [
-    { name: 'Owner' },
-    { name: 'Admin' },
-    { name: 'Moderator' },
-    { name: 'User' },
-    { name: 'School' },
+    { name: 'owner' },
+    { name: 'admin' },
+    { name: 'moderator' },
+    { name: 'user' },
+    { name: 'school' },
   ];
 
   for (const role of roles) {
