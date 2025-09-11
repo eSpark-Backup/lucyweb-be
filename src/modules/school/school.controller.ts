@@ -50,10 +50,12 @@ export class SchoolController {
             name: school.organization.name,
             is_trust: school.organization.is_trust,
             trust_locked: school.organization.trust_locked,
-            selected_school_count: school.organization.selected_school_count,
+            selected_school_count:
+              school.organization.selected_school_count ?? null,
+            unit_price: school.organization.unit_price ?? null, // raw unit price (nullable)
           }
         : null,
-      cost: school.cost,
+      cost: school.cost ?? null, // cost returned from service (normalized)
       created_at: school.created_at,
       updated_at: school.updated_at,
     };
