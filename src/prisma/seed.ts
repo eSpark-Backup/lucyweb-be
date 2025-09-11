@@ -9,6 +9,7 @@ async function main() {
     { name: 'Admin' },
     { name: 'Moderator' },
     { name: 'User' },
+    { name: 'School' },
   ];
 
   for (const role of roles) {
