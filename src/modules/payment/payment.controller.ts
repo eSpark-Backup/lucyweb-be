@@ -4,9 +4,15 @@ import {
   Body,
   HttpException,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
+import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
+import { Roles } from 'src/common/decorator/roles.decorator';
+import { Role } from 'src/common/schema/roles.enum';
 
+@UseGuards(JwtAuthGuard)
+@Roles(Role.ADMIN, Role.USER, Role.MODERATOR)
 @Controller('payment')
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}

@@ -19,6 +19,7 @@ export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 
   @UseGuards(JwtAuthGuard)
+  @Roles(Role.ADMIN, Role.MODERATOR, Role.USER)
   @Post('/create')
   async createOrganization(
     @Body() createOrganizationDto: CreateOrganizationDto,
@@ -32,6 +33,7 @@ export class OrganizationController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Roles(Role.ADMIN, Role.MODERATOR, Role.USER)
   @Get('/me')
   async getOrganizationDetails(@Request() req: any) {
     const { email, role } = req.user;
@@ -39,6 +41,7 @@ export class OrganizationController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Roles(Role.ADMIN, Role.MODERATOR, Role.USER)
   @Patch('/update')
   async updateOrganization(
     @Body() updateData: { name?: string; address?: string },
