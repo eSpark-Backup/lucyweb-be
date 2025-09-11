@@ -6,6 +6,33 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class SchoolService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Helper - returns latest successful payment for an org
+  private async getLatestSuccessfulPayment(organizationId: number) {
+    return this.prisma.payment.findFirst({
+      where: { organization_id: organizationId, status: 'success' },
+      orderBy: { created_at: 'desc' },
+      select: {
+        schools_count: true,
+        unit_price: true,
+        amount: true,
+        created_at: true,
+      },
+    });
+  }
+
+  // Normalize unit_price -> human friendly (try to convert pence->GBP if it looks like pence)
+  private normalizeUnitPrice(
+    unitPrice?: number | null,
+    amount?: number | null,
+  ): number | null {
+    if (unitPrice == null) return amount ?? null;
+    // heuristics: if stored as pence (1000 -> £10) convert
+    if (unitPrice > 100) {
+      return unitPrice / 100;
+    }
+    return unitPrice;
+  }
+
   async createSchool(data: any) {
     try {
       if (data.organization_id) {
@@ -15,7 +42,7 @@ export class SchoolService {
       // Fetch organization
       const organization = await this.prisma.organization.findUnique({
         where: { id: data.organization_id },
-        select: { id: true, is_trust: true },
+        select: { id: true, is_trust: true, selected_school_count: true },
       });
 
       if (!organization) {
@@ -39,10 +66,39 @@ export class SchoolService {
         }
       }
 
-      return await this.prisma.school.create({
+      const created = await this.prisma.school.create({
         data,
         include: { organization: true },
       });
+
+      // enrich response with billing info derived from latest successful payment
+      const payment = await this.getLatestSuccessfulPayment(
+        created.organization_id,
+      );
+
+      const selected_school_count =
+        payment?.schools_count ??
+        created.organization?.selected_school_count ??
+        null;
+      const raw_unit_price = payment?.unit_price ?? null;
+      const cost = this.normalizeUnitPrice(
+        raw_unit_price,
+        payment?.amount ?? null,
+      );
+
+      const schoolWithBilling = {
+        ...created,
+        cost, // readable cost for frontend
+        organization: created.organization
+          ? {
+              ...created.organization,
+              selected_school_count,
+              unit_price: raw_unit_price,
+            }
+          : null,
+      };
+
+      return schoolWithBilling;
     } catch (error: any) {
       if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
         throw new HttpException(
@@ -79,7 +135,32 @@ export class SchoolService {
         include: { organization: true },
       });
 
-      return { data: schools };
+      // Find billing for the single organization (optimization: only one org in this typical case)
+      const orgId = profile.organization_id;
+      const payment = await this.getLatestSuccessfulPayment(orgId);
+      const selected_school_count = payment?.schools_count ?? null;
+      const raw_unit_price = payment?.unit_price ?? null;
+      const cost = this.normalizeUnitPrice(
+        raw_unit_price,
+        payment?.amount ?? null,
+      );
+
+      const schoolsWithBilling = schools.map((s) => ({
+        ...s,
+        cost,
+        organization: s.organization
+          ? {
+              ...s.organization,
+              selected_school_count:
+                selected_school_count ??
+                s.organization.selected_school_count ??
+                null,
+              unit_price: raw_unit_price,
+            }
+          : null,
+      }));
+
+      return { data: schoolsWithBilling };
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to fetch schools',
@@ -90,10 +171,37 @@ export class SchoolService {
 
   async getSchoolById(id: number) {
     try {
-      return await this.prisma.school.findUnique({
+      const school = await this.prisma.school.findUnique({
         where: { id },
         include: { organization: true },
       });
+
+      if (!school) return null;
+
+      const payment = await this.getLatestSuccessfulPayment(
+        school.organization_id,
+      );
+      const selected_school_count =
+        payment?.schools_count ??
+        school.organization?.selected_school_count ??
+        null;
+      const raw_unit_price = payment?.unit_price ?? null;
+      const cost = this.normalizeUnitPrice(
+        raw_unit_price,
+        payment?.amount ?? null,
+      );
+
+      return {
+        ...school,
+        cost,
+        organization: school.organization
+          ? {
+              ...school.organization,
+              selected_school_count,
+              unit_price: raw_unit_price,
+            }
+          : null,
+      };
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to fetch school',
@@ -107,11 +215,36 @@ export class SchoolService {
       if (data.organization_id) {
         data.organization_id = Number(data.organization_id);
       }
-      return await this.prisma.school.update({
+      const updated = await this.prisma.school.update({
         where: { id },
         data,
         include: { organization: true },
       });
+
+      const payment = await this.getLatestSuccessfulPayment(
+        updated.organization_id,
+      );
+      const selected_school_count =
+        payment?.schools_count ??
+        updated.organization?.selected_school_count ??
+        null;
+      const raw_unit_price = payment?.unit_price ?? null;
+      const cost = this.normalizeUnitPrice(
+        raw_unit_price,
+        payment?.amount ?? null,
+      );
+
+      return {
+        ...updated,
+        cost,
+        organization: updated.organization
+          ? {
+              ...updated.organization,
+              selected_school_count,
+              unit_price: raw_unit_price,
+            }
+          : null,
+      };
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to update school',

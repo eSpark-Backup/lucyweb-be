@@ -8,6 +8,16 @@ import { EmailService } from '../email/email.service';
 export class PaymentService {
   private stripe: Stripe;
   private baseUrl: string;
+  // normalize a stored unit_price which may be in pence (e.g. 1000) or pounds (e.g. 10)
+  private normalizeUnitPriceForComparison(
+    unitPrice: number | null | undefined,
+    amount?: number | null,
+  ) {
+    if (unitPrice == null) return amount ?? null;
+    // heuristics: if > 100 treat as pence -> convert to pounds
+    if (unitPrice > 100) return unitPrice / 100;
+    return unitPrice;
+  }
 
   constructor(
     private configService: ConfigService,
@@ -75,9 +85,32 @@ export class PaymentService {
         );
       }
 
-      // Determine price per school (in pence)
-      const unitPrice = createdCount < selectedCount ? 5000 : 1000; // £50 vs £10
-      const totalAmount = unitPrice * newSchools;
+      // Get latest successful payment (if any) to see what unit price was used previously
+      const latestSuccessPayment = await this.prisma.payment.findFirst({
+        where: { organization_id: organization.id, status: 'success' },
+        orderBy: { created_at: 'desc' },
+        select: { unit_price: true, amount: true },
+      });
+
+      const lastUnitPriceNormalized = this.normalizeUnitPriceForComparison(
+        latestSuccessPayment?.unit_price ?? null,
+        latestSuccessPayment?.amount ?? null,
+      );
+
+      // If org ever had a successful payment billed at £10 (or 10 after normalization),
+      // we keep charging £10 going forward (once-cheap-always-cheap).
+      const hadCheapPaymentBefore =
+        lastUnitPriceNormalized != null && lastUnitPriceNormalized <= 10;
+
+      // Determine price per school (unit price in pence for Stripe)
+      let unitPricePence: number;
+      if (createdCount < selectedCount) {
+        // normally we'd charge £50 here, but if org already had cheap pricing keep £10
+        unitPricePence = hadCheapPaymentBefore ? 1000 : 5000;
+      } else {
+        unitPricePence = 1000; // £10
+      }
+      const totalAmount = unitPricePence * newSchools;
 
       try {
         const session = await this.stripe.checkout.sessions.create({
@@ -90,7 +123,7 @@ export class PaymentService {
                   name: 'Trust Plan - Schools Subscription',
                   description: `${newSchools} newly added school(s)`,
                 },
-                unit_amount: unitPrice,
+                unit_amount: unitPricePence,
                 recurring: { interval: 'month' },
               },
               quantity: newSchools,
@@ -103,7 +136,7 @@ export class PaymentService {
             organizationId: organization.id.toString(),
             plan,
             newSchools: newSchools.toString(),
-            unitPrice: unitPrice.toString(),
+            unitPrice: unitPricePence.toString(),
           },
         });
 
@@ -116,7 +149,7 @@ export class PaymentService {
             description: `Payment for ${newSchools} school(s)`,
             stripe_session_id: session.id,
             schools_count: newSchools,
-            unit_price: unitPrice,
+            unit_price: unitPricePence,
           },
         });
 
@@ -291,6 +324,19 @@ export class PaymentService {
         status: 'success',
         stripe_subscription_id: subscriptionId ?? undefined,
         stripe_invoice_id: invoiceId ?? undefined,
+      },
+    });
+
+    // ✅ Recalculate and update organization’s total paid schools
+    const totalPurchased = await this.prisma.payment.aggregate({
+      _sum: { schools_count: true },
+      where: { organization_id: paymentRow.organization_id, status: 'success' },
+    });
+
+    await this.prisma.organization.update({
+      where: { id: paymentRow.organization_id },
+      data: {
+        selected_school_count: totalPurchased._sum.schools_count ?? 0,
       },
     });
 
