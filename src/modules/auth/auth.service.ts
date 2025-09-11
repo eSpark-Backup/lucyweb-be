@@ -33,9 +33,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
-        profile: {
-          include: { role: true },
-        },
+        role: true, // ✅ include user.role
+        profile: { include: { role: true } }, // ✅ include profile.role
       },
     });
 
@@ -76,7 +75,9 @@ export class AuthService {
         email: user.email,
         firstName: user.profile?.first_name,
         lastName: user.profile?.last_name,
-        role: user.profile?.role.name,
+        role:
+          user.role?.name?.toLowerCase() ||
+          user.profile?.role?.name?.toLowerCase(),
       };
 
       const accessToken = this.jwtService.sign(payload, {
