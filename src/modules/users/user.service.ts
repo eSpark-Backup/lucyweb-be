@@ -173,7 +173,11 @@ export class UserService {
           },
         },
         school: {
-          include: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
             organization: {
               select: {
                 id: true,
@@ -367,7 +371,8 @@ export class UserService {
       email_verified: user.email_verified,
       created_at: user.created_at,
       updated_at: user.updated_at,
-      role: user.role?.name || user.profile?.role?.name,
+      role: user.role?.name || user.profile?.role?.name || 'school',
+
       profile: user.profile
         ? {
             first_name: user.profile.first_name,
@@ -380,7 +385,26 @@ export class UserService {
                   address: user.profile.organization.address,
                   subscriptionStatus:
                     user.profile.organization.subscription_status,
-                  is_trust: user.profile?.organization?.is_trust ?? false,
+                  is_trust: user.profile.organization.is_trust ?? false,
+                }
+              : null,
+          }
+        : null,
+
+      school: user.school
+        ? {
+            id: user.school.id,
+            name: user.school.name,
+            email: user.school.email,
+            is_paid: user.school.is_paid, // ✅ include is_paid properly
+            organization: user.school.organization
+              ? {
+                  id: user.school.organization.id,
+                  name: user.school.organization.name,
+                  is_trust: user.school.organization.is_trust,
+                  trust_locked: user.school.organization.trust_locked,
+                  selected_school_count:
+                    user.school.organization.selected_school_count,
                 }
               : null,
           }
