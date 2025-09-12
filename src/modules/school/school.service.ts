@@ -46,9 +46,10 @@ export class SchoolService {
     return null;
   }
 
-  // Calculate cost per school using trust_locked flag
+  // Calculate cost per school considering paid/unpaid & trust_locked
   private async calculateCostPerSchool(
     organizationId: number,
+    unpaidOnly = false, // if true, only consider unpaid schools
   ): Promise<number> {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -59,17 +60,39 @@ export class SchoolService {
       },
     });
 
-    if (!org) return 50;
-    if (!org.is_trust) return 50;
+    if (!org || !org.is_trust) return 50;
 
+    // If discount already locked, always £10 for all
     if (org.trust_locked) return 10;
 
-    const createdSchools = await this.prisma.school.count({
+    const totalCreated = await this.prisma.school.count({
       where: { organization_id: organizationId },
     });
 
-    if (createdSchools >= (org.selected_school_count ?? 0)) {
-      // Lock discount once threshold reached
+    // Only unpaid schools cost logic
+    if (unpaidOnly) {
+      const paidCountAgg = await this.prisma.payment.aggregate({
+        _sum: { schools_count: true },
+        where: { organization_id: organizationId, status: 'success' },
+      });
+      const totalPaid = paidCountAgg._sum.schools_count ?? 0;
+      const unpaidCount = totalCreated - totalPaid;
+
+      if (totalCreated >= (org.selected_school_count ?? 0)) {
+        // Threshold reached: lock discount for future
+        await this.prisma.organization.update({
+          where: { id: organizationId },
+          data: { trust_locked: true },
+        });
+        return 10;
+      }
+
+      // Before threshold: unpaid schools cost 50
+      return 50;
+    }
+
+    // Regular calculation for all schools
+    if (totalCreated >= (org.selected_school_count ?? 0)) {
       await this.prisma.organization.update({
         where: { id: organizationId },
         data: { trust_locked: true },
@@ -133,7 +156,11 @@ export class SchoolService {
         include: { organization: true },
       });
 
-      const cost = await this.calculateCostPerSchool(created.organization_id);
+      // Cost for this new school only (unpaid logic)
+      const cost = await this.calculateCostPerSchool(
+        created.organization_id,
+        true,
+      );
 
       const payment = await this.getLatestPayment(created.organization_id);
       const selected_school_count =
@@ -186,14 +213,22 @@ export class SchoolService {
         include: { organization: true },
       });
 
-      const cost = await this.calculateCostPerSchool(profile.organization_id);
+      // Calculate cost per school correctly for display
+      const costs = await Promise.all(
+        schools.map(async (s) => ({
+          id: s.id,
+          cost: await this.calculateCostPerSchool(s.organization_id, true),
+        })),
+      );
+      const costMap = new Map(costs.map((c) => [c.id, c.cost]));
+
       const payment = await this.getLatestPayment(profile.organization_id);
       const selected_school_count = payment?.schools_count ?? null;
       const raw_unit_price = payment?.unit_price ?? null;
 
       const schoolsWithBilling = schools.map((s) => ({
         ...s,
-        cost,
+        cost: costMap.get(s.id) ?? 50,
         organization: s.organization
           ? {
               ...s.organization,
@@ -224,7 +259,10 @@ export class SchoolService {
 
       if (!school) return null;
 
-      const cost = await this.calculateCostPerSchool(school.organization_id);
+      const cost = await this.calculateCostPerSchool(
+        school.organization_id,
+        true,
+      );
       const payment = await this.getLatestPayment(school.organization_id);
       const selected_school_count =
         payment?.schools_count ??
@@ -263,7 +301,10 @@ export class SchoolService {
         include: { organization: true },
       });
 
-      const cost = await this.calculateCostPerSchool(updated.organization_id);
+      const cost = await this.calculateCostPerSchool(
+        updated.organization_id,
+        true,
+      );
       const payment = await this.getLatestPayment(updated.organization_id);
       const selected_school_count =
         payment?.schools_count ??
@@ -292,7 +333,19 @@ export class SchoolService {
 
   async deleteSchool(id: number) {
     try {
-      return await this.prisma.school.delete({ where: { id } });
+      const school = await this.prisma.school.findUnique({
+        where: { id },
+        select: { organization_id: true },
+      });
+
+      if (!school) {
+        throw new HttpException('School not found', HttpStatus.NOT_FOUND);
+      }
+
+      await this.prisma.school.delete({ where: { id } });
+
+      // trust_locked is permanent; cost remains £10 after threshold
+      return { message: 'School deleted successfully', school_id: id };
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to delete school',
