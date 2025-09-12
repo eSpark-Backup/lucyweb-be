@@ -172,12 +172,30 @@ export class UserService {
             role: true,
           },
         },
+        school: {
+          include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+                is_trust: true,
+                trust_locked: true,
+                selected_school_count: true,
+              },
+            },
+          },
+        },
         role: true,
       },
     });
 
-    if (!user || !user.profile) {
-      throw new NotFoundException('User or profile not found');
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // if both profile and school are missing → invalid user
+    if (!user.profile && !user.school) {
+      throw new NotFoundException('User or profile/school not found');
     }
 
     return this.sanitizeUser(user);
