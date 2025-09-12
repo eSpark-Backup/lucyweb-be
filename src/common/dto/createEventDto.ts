@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsDateString,
   IsNotEmpty,
+  IsEmail,
 } from 'class-validator';
 
 export class CreateEventDto {
@@ -20,6 +21,11 @@ export class CreateEventDto {
   @IsInt()
   @IsOptional()
   school_id?: number;
+
+  @IsString()
+  @IsEmail()
+  @IsOptional()
+  school_email?: string;
 
   @IsString()
   @IsOptional()

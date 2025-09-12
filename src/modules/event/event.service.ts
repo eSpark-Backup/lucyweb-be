@@ -76,62 +76,76 @@ export class EventService {
   }
 
   async createEvent(
-    data: Prisma.EventCreateInput & { school_id?: number },
+    data: Prisma.EventCreateInput & { school_email?: string },
     userId: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    // ✅ Ensure the user exists and include linked school
+    // Ensure the user exists and include linked school
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { school: true },
     });
-    if (!user) {
-      throw new Error('User not found. Please check the userId.');
-    }
+    if (!user) throw new Error('User not found');
 
-    // ✅ Validate and normalize event date
+    // Validate and normalize event date
     const eventDate = new Date(data.date_time);
     if (isNaN(eventDate.getTime())) {
-      throw new BadRequestException(
-        'Invalid date_time format. Please use ISO 8601 with timezone.',
-      );
+      throw new BadRequestException('Invalid date_time format');
     }
     if (eventDate.getTime() < Date.now()) {
-      throw new BadRequestException('Cannot create events in the past.');
+      throw new BadRequestException('Cannot create events in the past');
     }
 
-    // ✅ Validate/convert time_span
+    // Validate/convert time_span
     const fixedTimeSpan =
       typeof (data as any).time_span === 'string'
         ? parseInt((data as any).time_span, 10)
         : (data as any).time_span;
     if (isNaN(fixedTimeSpan)) {
-      throw new BadRequestException('Invalid time_span: must be a number.');
+      throw new BadRequestException('Invalid time_span: must be a number');
     }
 
-    // ✅ Optional image upload
+    // Optional image upload
     let imageUrl: string | undefined;
     if (file) {
       imageUrl = await this.storageService.uploadFile(file);
     }
 
-    // ✅ Determine school ID: prefer request body, fallback to logged-in user's school
-    const schoolIdToConnect = data.school_id ?? user.school?.id;
+    // Determine school association
+    let schoolToConnect: { id: number } | undefined;
 
-    // ✅ Destructure to remove school_id before sending to Prisma
-    const { school_id, ...rest } = data;
+    if (data.school_email) {
+      // Look up school by email for trust org user
+      const school = await this.prisma.school.findUnique({
+        where: { email: data.school_email },
+      });
+      if (!school) {
+        throw new BadRequestException(
+          `School with email ${data.school_email} not found`,
+        );
+      }
+      schoolToConnect = { id: school.id };
+    } else if (user.school) {
+      // fallback to user's linked school
+      schoolToConnect = { id: user.school.id };
+    }
 
-    // ✅ Final create
+    if (!schoolToConnect) {
+      throw new BadRequestException(
+        'school_email must be provided for trust users or user must be linked to a school',
+      );
+    }
+
+    const { school_email, ...rest } = data;
+
     return this.prisma.event.create({
       data: {
-        ...rest, // all valid EventCreateInput fields
+        ...rest,
         date_time: eventDate,
         time_span: fixedTimeSpan,
         image: imageUrl,
         user: { connect: { id: userId } },
-        ...(schoolIdToConnect
-          ? { school: { connect: { id: schoolIdToConnect } } }
-          : {}), // connect school if available
+        school: { connect: schoolToConnect },
       },
       include: { contents: true },
     });
