@@ -33,8 +33,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
-        role: true, // ✅ include user.role
-        profile: { include: { role: true } }, // ✅ include profile.role
+        role: true, // fetch user.role
+        profile: { include: { role: true } }, // fetch profile.role
       },
     });
 
@@ -48,6 +48,17 @@ export class AuthService {
       this.logger.warn(`Login failed: Incorrect password for email ${email}`);
       throw new UnauthorizedException('Invalid email or password');
     }
+
+    // ✅ Build a single payload so `role` is always present
+    const payload = {
+      id: user.id,
+      email: user.email,
+      firstName: user.profile?.first_name,
+      lastName: user.profile?.last_name,
+      role:
+        user.role?.name?.toLowerCase() ||
+        user.profile?.role?.name?.toLowerCase(),
+    };
 
     if (!user.email_verified) {
       this.logger.warn(`Email not verified for user: ${email}`);
@@ -70,40 +81,17 @@ export class AuthService {
         user.profile?.first_name,
       );
 
-      const payload = {
-        id: user.id,
-        email: user.email,
-        firstName: user.profile?.first_name,
-        lastName: user.profile?.last_name,
-        role:
-          user.role?.name?.toLowerCase() ||
-          user.profile?.role?.name?.toLowerCase(),
-      };
-
-      const accessToken = this.jwtService.sign(payload, {
-        expiresIn: '2h',
-      });
-
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '2h' });
       this.logger.log(`Verification email re-sent to: ${email}`);
       return { accessToken, email_verified: false };
     }
 
-    const payload = {
-      id: user.id,
-      email: user.email,
-      firstName: user.profile?.first_name,
-      lastName: user.profile?.last_name,
-      role: user.profile?.role.name,
-    };
-
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '2h',
-    });
-
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '2h' });
     this.logger.log(`Login successful for email: ${email}`);
 
-    return { accessToken, email_verified: user.email_verified };
+    return { accessToken, email_verified: true };
   }
+
   // Verify email method
   async verifyEmail(
     token: string,
