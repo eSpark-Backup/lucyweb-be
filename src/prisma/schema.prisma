@@ -91,6 +91,7 @@ model Organization {
   address               String
   is_trust              Boolean         @default(false)
   selected_school_count Int?
+  paid_school_count     Int             @default(0)
   subscription_status   String?         // active, cancelled, past_due, etc.
   stripe_subscription_id String?        @unique // Stripe subscription id (e.g. sub_xxx)
   last_purchase         DateTime?
