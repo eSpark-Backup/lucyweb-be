@@ -270,7 +270,7 @@ export class PaymentService {
 
     await this.prisma.organization.update({
       where: { id: organizationId },
-      data: { selected_school_count: totalPaidSchools },
+      data: { paid_school_count: totalPaidSchools },
     });
 
     // ────────── Mark newly paid schools as paid ──────────

@@ -56,6 +56,7 @@ export class SchoolService {
       select: {
         is_trust: true,
         selected_school_count: true,
+        paid_school_count: true,
         trust_locked: true,
       },
     });
@@ -65,34 +66,23 @@ export class SchoolService {
     // If discount already locked, always £10 for all
     if (org.trust_locked) return 10;
 
-    const totalCreated = await this.prisma.school.count({
-      where: { organization_id: organizationId },
-    });
-
-    // Only unpaid schools cost logic
+    // ────────── Trust pricing logic ──────────
     if (unpaidOnly) {
-      const paidCountAgg = await this.prisma.payment.aggregate({
-        _sum: { schools_count: true },
-        where: { organization_id: organizationId, status: 'success' },
-      });
-      const totalPaid = paidCountAgg._sum.schools_count ?? 0;
-      const unpaidCount = totalCreated - totalPaid;
-
-      if (totalCreated >= (org.selected_school_count ?? 0)) {
-        // Threshold reached: lock discount for future
+      // Check against *paid* schools, not payments aggregation
+      if (org.paid_school_count >= (org.selected_school_count ?? 0)) {
+        // Threshold reached: lock discount permanently
         await this.prisma.organization.update({
           where: { id: organizationId },
           data: { trust_locked: true },
         });
         return 10;
       }
-
       // Before threshold: unpaid schools cost 50
       return 50;
     }
 
     // Regular calculation for all schools
-    if (totalCreated >= (org.selected_school_count ?? 0)) {
+    if (org.paid_school_count >= (org.selected_school_count ?? 0)) {
       await this.prisma.organization.update({
         where: { id: organizationId },
         data: { trust_locked: true },
