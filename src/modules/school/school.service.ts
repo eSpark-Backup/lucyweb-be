@@ -7,9 +7,9 @@ import * as bcrypt from 'bcrypt';
 export class SchoolService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Helper - returns latest successful payment for an org
-  private async getLatestSuccessfulPayment(organizationId: number) {
-    return this.prisma.payment.findFirst({
+  // Helper - returns latest payment (success first, fallback to any)
+  private async getLatestPayment(organizationId: number) {
+    let payment = await this.prisma.payment.findFirst({
       where: { organization_id: organizationId, status: 'success' },
       orderBy: { created_at: 'desc' },
       select: {
@@ -19,27 +19,72 @@ export class SchoolService {
         created_at: true,
       },
     });
+
+    if (!payment) {
+      payment = await this.prisma.payment.findFirst({
+        where: { organization_id: organizationId },
+        orderBy: { created_at: 'desc' },
+        select: {
+          schools_count: true,
+          unit_price: true,
+          amount: true,
+          created_at: true,
+        },
+      });
+    }
+
+    return payment;
   }
 
-  // Normalize unit_price -> human friendly (try to convert pence->GBP if it looks like pence)
+  // Normalize unit_price -> human friendly
   private normalizeUnitPrice(
     unitPrice?: number | null,
     amount?: number | null,
   ): number | null {
-    if (unitPrice == null) return amount ?? null;
-    if (unitPrice > 100) {
-      return unitPrice / 100;
+    if (unitPrice != null) return unitPrice > 100 ? unitPrice / 100 : unitPrice;
+    if (amount != null) return amount > 100 ? amount / 100 : amount;
+    return null;
+  }
+
+  // Calculate cost per school using trust_locked flag
+  private async calculateCostPerSchool(
+    organizationId: number,
+  ): Promise<number> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        is_trust: true,
+        selected_school_count: true,
+        trust_locked: true,
+      },
+    });
+
+    if (!org) return 50;
+    if (!org.is_trust) return 50;
+
+    if (org.trust_locked) return 10;
+
+    const createdSchools = await this.prisma.school.count({
+      where: { organization_id: organizationId },
+    });
+
+    if (createdSchools >= (org.selected_school_count ?? 0)) {
+      // Lock discount once threshold reached
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { trust_locked: true },
+      });
+      return 10;
     }
-    return unitPrice;
+
+    return 50;
   }
 
   async createSchool(data: any) {
     try {
-      if (data.organization_id) {
+      if (data.organization_id)
         data.organization_id = Number(data.organization_id);
-      }
 
-      // Fetch organization
       const organization = await this.prisma.organization.findUnique({
         where: { id: data.organization_id },
         select: { id: true, is_trust: true, selected_school_count: true },
@@ -52,12 +97,10 @@ export class SchoolService {
         );
       }
 
-      // If org is NOT a trust, allow only one school
       if (!organization.is_trust) {
         const existingSchool = await this.prisma.school.findFirst({
           where: { organization_id: data.organization_id },
         });
-
         if (existingSchool) {
           throw new HttpException(
             'An individual organization can only create one school',
@@ -66,7 +109,6 @@ export class SchoolService {
         }
       }
 
-      // ---- handle school user creation when trust org and password provided ----
       let userId: number | null = null;
       if (organization.is_trust && data.password) {
         const hashed = await bcrypt.hash(data.password, 10);
@@ -78,9 +120,8 @@ export class SchoolService {
           },
         });
         userId = newUser.id;
-        delete data.password; // avoid saving plain password in school table
+        delete data.password;
       } else {
-        // remove password if non-trust or not provided
         delete data.password;
       }
 
@@ -92,22 +133,16 @@ export class SchoolService {
         include: { organization: true },
       });
 
-      // enrich response with billing info derived from latest successful payment
-      const payment = await this.getLatestSuccessfulPayment(
-        created.organization_id,
-      );
+      const cost = await this.calculateCostPerSchool(created.organization_id);
 
+      const payment = await this.getLatestPayment(created.organization_id);
       const selected_school_count =
         payment?.schools_count ??
         created.organization?.selected_school_count ??
         null;
       const raw_unit_price = payment?.unit_price ?? null;
-      const cost = this.normalizeUnitPrice(
-        raw_unit_price,
-        payment?.amount ?? null,
-      );
 
-      const schoolWithBilling = {
+      return {
         ...created,
         cost,
         organization: created.organization
@@ -118,8 +153,6 @@ export class SchoolService {
             }
           : null,
       };
-
-      return schoolWithBilling;
     } catch (error: any) {
       if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
         throw new HttpException(
@@ -127,7 +160,6 @@ export class SchoolService {
           HttpStatus.BAD_REQUEST,
         );
       }
-
       throw new HttpException(
         error.message || 'Failed to create school',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -154,14 +186,10 @@ export class SchoolService {
         include: { organization: true },
       });
 
-      const orgId = profile.organization_id;
-      const payment = await this.getLatestSuccessfulPayment(orgId);
+      const cost = await this.calculateCostPerSchool(profile.organization_id);
+      const payment = await this.getLatestPayment(profile.organization_id);
       const selected_school_count = payment?.schools_count ?? null;
       const raw_unit_price = payment?.unit_price ?? null;
-      const cost = this.normalizeUnitPrice(
-        raw_unit_price,
-        payment?.amount ?? null,
-      );
 
       const schoolsWithBilling = schools.map((s) => ({
         ...s,
@@ -196,18 +224,13 @@ export class SchoolService {
 
       if (!school) return null;
 
-      const payment = await this.getLatestSuccessfulPayment(
-        school.organization_id,
-      );
+      const cost = await this.calculateCostPerSchool(school.organization_id);
+      const payment = await this.getLatestPayment(school.organization_id);
       const selected_school_count =
         payment?.schools_count ??
         school.organization?.selected_school_count ??
         null;
       const raw_unit_price = payment?.unit_price ?? null;
-      const cost = this.normalizeUnitPrice(
-        raw_unit_price,
-        payment?.amount ?? null,
-      );
 
       return {
         ...school,
@@ -230,28 +253,23 @@ export class SchoolService {
 
   async updateSchool(id: number, data: any) {
     try {
-      if (data.organization_id) {
+      if (data.organization_id)
         data.organization_id = Number(data.organization_id);
-      }
-      delete data.password; // prevent accidental overwrite
+      delete data.password;
+
       const updated = await this.prisma.school.update({
         where: { id },
         data,
         include: { organization: true },
       });
 
-      const payment = await this.getLatestSuccessfulPayment(
-        updated.organization_id,
-      );
+      const cost = await this.calculateCostPerSchool(updated.organization_id);
+      const payment = await this.getLatestPayment(updated.organization_id);
       const selected_school_count =
         payment?.schools_count ??
         updated.organization?.selected_school_count ??
         null;
       const raw_unit_price = payment?.unit_price ?? null;
-      const cost = this.normalizeUnitPrice(
-        raw_unit_price,
-        payment?.amount ?? null,
-      );
 
       return {
         ...updated,
@@ -274,9 +292,7 @@ export class SchoolService {
 
   async deleteSchool(id: number) {
     try {
-      return await this.prisma.school.delete({
-        where: { id },
-      });
+      return await this.prisma.school.delete({ where: { id } });
     } catch (error) {
       throw new HttpException(
         error.message || 'Failed to delete school',
