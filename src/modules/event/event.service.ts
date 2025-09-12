@@ -60,18 +60,41 @@ export class EventService {
     );
 
     return this.prisma.event.findMany({
-      where: {
-        date_time: { gte: startDate, lt: endDate },
-        user_id: userId,
+      where: { date_time: { gte: startDate, lt: endDate }, user_id: userId },
+      include: {
+        contents: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
+          },
+        },
       },
-      include: { contents: true },
     });
   }
 
   async getEventById(id: number): Promise<Event | null> {
     return this.prisma.event.findUnique({
       where: { id },
-      include: { contents: true },
+      include: {
+        contents: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
+            organization: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -147,7 +170,17 @@ export class EventService {
         user: { connect: { id: userId } },
         school: { connect: schoolToConnect },
       },
-      include: { contents: true },
+      include: {
+        contents: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
+          },
+        },
+      },
     });
   }
 
@@ -213,7 +246,17 @@ export class EventService {
     return this.prisma.event.update({
       where: { id },
       data: updatePayload,
-      include: { contents: true },
+      include: {
+        contents: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
+          },
+        },
+      },
     });
   }
 
@@ -411,6 +454,16 @@ export class EventService {
     return this.prisma.event.findMany({
       where: { user_id: userId },
       orderBy: { date_time: 'desc' },
+      include: {
+        school: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
+          },
+        },
+      },
     });
   }
 
