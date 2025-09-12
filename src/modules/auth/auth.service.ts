@@ -100,12 +100,12 @@ export class AuthService {
       throw new BadRequestException('Verification token is required');
     }
 
+    // Fetch user with direct role relation
     const user = await this.prisma.user.findUnique({
       where: { email_verification_token: token },
       include: {
-        profile: {
-          include: { role: true },
-        },
+        profile: true,
+        role: true, // ✅ ensure the user's actual role is loaded
       },
     });
 
@@ -124,7 +124,7 @@ export class AuthService {
       throw new BadRequestException('Email is already verified');
     }
 
-    // Update user as verified
+    // Mark email as verified and clear verification fields
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -134,22 +134,24 @@ export class AuthService {
       },
     });
 
-    // Send welcome email
+    // Send optional welcome email
     await this.emailService.sendWelcomeEmail(
       user.email,
       user.profile?.first_name,
     );
 
+    // ✅ Build JWT payload with the correct role (e.g. 'school')
     const payload = {
       id: user.id,
       email: user.email,
       firstName: user.profile?.first_name,
       lastName: user.profile?.last_name,
-      role: user.profile?.role.name,
+      role: user.role?.name ?? 'user',
     };
 
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '2h',
+      secret: process.env.JWT_SECRET,
     });
 
     return {
