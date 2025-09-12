@@ -31,7 +31,6 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Roles(Role.SCHOOL, Role.USER, Role.ADMIN, Role.MODERATOR)
   @Get('/me')
   async getProfile(@Request() req): Promise<any> {
     return this.userService.getUserProfile(req.user.email);
