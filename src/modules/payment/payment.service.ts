@@ -44,8 +44,20 @@ export class PaymentService {
   ) {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
-      include: { schools: true },
+      select: {
+        id: true,
+        selected_school_count: true,
+        is_trust: true,
+        trust_locked: true, // ✅ included and matches schema
+        schools: {
+          select: {
+            id: true,
+            is_paid: true,
+          },
+        },
+      },
     });
+
     if (!org) {
       throw new HttpException('Organization not found', HttpStatus.NOT_FOUND);
     }
@@ -68,12 +80,10 @@ export class PaymentService {
         );
       }
 
-      // Count of schools already paid for
-      const paidAgg = await this.prisma.payment.aggregate({
-        _sum: { schools_count: true },
-        where: { organization_id: org.id, status: 'success' },
+      // ✅ Count of schools currently marked as paid
+      const paidCount = await this.prisma.school.count({
+        where: { organization_id: org.id, is_paid: true },
       });
-      const paidCount = paidAgg._sum.schools_count ?? 0;
 
       // Only charge for *new* schools
       const newSchools = createdCount - paidCount;
@@ -87,7 +97,8 @@ export class PaymentService {
       // Pricing rule:
       // Case A: created < selected → £50 each
       // Case B: created >= selected → £10 each
-      const unitPricePence = createdCount < selectedCount ? 5000 : 1000;
+      const unitPricePence =
+        org.trust_locked || createdCount >= selectedCount ? 1000 : 5000;
       const totalAmount = (unitPricePence * newSchools) / 100;
 
       const session = await this.stripe.checkout.sessions.create({
@@ -272,6 +283,25 @@ export class PaymentService {
       where: { id: organizationId },
       data: { paid_school_count: totalPaidSchools },
     });
+
+    const orgData = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { trust_locked: true, selected_school_count: true },
+    });
+    const currentCreated = await this.prisma.school.count({
+      where: { organization_id: organizationId },
+    });
+
+    if (
+      !orgData?.trust_locked &&
+      orgData?.selected_school_count &&
+      currentCreated >= orgData.selected_school_count
+    ) {
+      await this.prisma.organization.update({
+        where: { id: organizationId },
+        data: { trust_locked: true },
+      });
+    }
 
     // ────────── Mark newly paid schools as paid ──────────
     if (paymentRow.schools_count > 0) {

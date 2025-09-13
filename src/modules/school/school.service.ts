@@ -146,6 +146,21 @@ export class SchoolService {
         include: { organization: true },
       });
 
+      if (organization.is_trust && !created.organization.trust_locked) {
+        const createdCount = await this.prisma.school.count({
+          where: { organization_id: created.organization_id },
+        });
+        if (
+          organization.selected_school_count &&
+          createdCount >= organization.selected_school_count
+        ) {
+          await this.prisma.organization.update({
+            where: { id: created.organization_id },
+            data: { trust_locked: true },
+          });
+        }
+      }
+
       // Cost for this new school only (unpaid logic)
       const cost = await this.calculateCostPerSchool(
         created.organization_id,
@@ -323,20 +338,66 @@ export class SchoolService {
 
   async deleteSchool(id: number) {
     try {
+      // ── Fetch the school with paid status and org info
       const school = await this.prisma.school.findUnique({
         where: { id },
-        select: { organization_id: true },
+        select: { id: true, organization_id: true, is_paid: true },
       });
 
       if (!school) {
         throw new HttpException('School not found', HttpStatus.NOT_FOUND);
       }
 
+      // ── Delete the school
       await this.prisma.school.delete({ where: { id } });
 
-      // trust_locked is permanent; cost remains £10 after threshold
-      return { message: 'School deleted successfully', school_id: id };
-    } catch (error) {
+      // ── Re-count paid schools after deletion
+      const paidCount = await this.prisma.school.count({
+        where: { organization_id: school.organization_id, is_paid: true },
+      });
+
+      // ── Update organization’s paid_school_count to real count
+      await this.prisma.organization.update({
+        where: { id: school.organization_id },
+        data: { paid_school_count: paidCount },
+      });
+
+      // ── Get updated organization details for pricing checks
+      const org = await this.prisma.organization.findUnique({
+        where: { id: school.organization_id },
+        select: {
+          is_trust: true,
+          selected_school_count: true,
+          trust_locked: true,
+          paid_school_count: true,
+        },
+      });
+
+      // ── Determine current per-school cost after this deletion
+      let costPerSchool = 50; // default
+      if (org?.is_trust) {
+        if (org.trust_locked) {
+          costPerSchool = 10;
+        } else if (
+          (org.selected_school_count ?? 0) > 0 &&
+          org.paid_school_count >= (org.selected_school_count ?? 0)
+        ) {
+          // threshold reached again → lock discount
+          await this.prisma.organization.update({
+            where: { id: school.organization_id },
+            data: { trust_locked: true },
+          });
+          costPerSchool = 10;
+        }
+      }
+
+      return {
+        message: 'School deleted successfully',
+        school_id: id,
+        current_cost_per_school: costPerSchool,
+        paid_school_count: org?.paid_school_count ?? 0,
+      };
+    } catch (error: any) {
       throw new HttpException(
         error.message || 'Failed to delete school',
         HttpStatus.INTERNAL_SERVER_ERROR,
