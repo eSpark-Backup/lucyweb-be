@@ -61,6 +61,27 @@ export class SchoolController {
       cost: school.cost ?? null,
       created_at: school.created_at,
       updated_at: school.updated_at,
+
+      // ✅ Include events with their contents
+      events:
+        school.events?.map((event: any) => ({
+          id: event.id,
+          name: event.name,
+          date_time: event.date_time,
+          time_span: event.time_span,
+          image: event.image,
+          created_at: event.created_at,
+          updated_at: event.updated_at,
+          contents:
+            event.contents?.map((c: any) => ({
+              id: c.id,
+              title: c.title,
+              description: c.description,
+              file_url: c.file_url,
+              created_at: c.created_at,
+              updated_at: c.updated_at,
+            })) ?? [],
+        })) ?? [],
     };
   }
 

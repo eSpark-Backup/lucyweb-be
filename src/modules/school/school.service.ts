@@ -213,12 +213,16 @@ export class SchoolService {
         );
       }
 
+      // ✅ Fetch schools with organization, events, and event contents
       const schools = await this.prisma.school.findMany({
         where: { organization_id: profile.organization_id },
-        include: { organization: true },
+        include: {
+          organization: true,
+          events: { include: { contents: true } },
+        },
       });
 
-      // Calculate cost per school correctly for display
+      // Calculate cost per school
       const costs = await Promise.all(
         schools.map(async (s) => ({
           id: s.id,
@@ -257,9 +261,13 @@ export class SchoolService {
 
   async getSchoolById(id: number) {
     try {
+      // ✅ Fetch single school with organization, events, and event contents
       const school = await this.prisma.school.findUnique({
         where: { id },
-        include: { organization: true },
+        include: {
+          organization: true,
+          events: { include: { contents: true } },
+        },
       });
 
       if (!school) return null;
