@@ -75,31 +75,35 @@ export class OrganizationService {
     email: string,
     role: Role,
   ): Promise<OrganizationDetails> {
-    // Fetch the user's profile with organization details
     const userProfile = await this.prisma.profile.findFirst({
-      where: {
-        user: { email },
-      },
+      where: { user: { email } },
       include: {
-        organization: true,
+        organization: {
+          include: {
+            schools: {
+              include: {
+                events: {
+                  include: {
+                    contents: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         role: true,
       },
     });
 
-    if (!userProfile) {
-      throw new NotFoundException('User profile not found');
-    }
+    if (!userProfile) throw new NotFoundException('User profile not found');
 
     const { organization } = userProfile;
-
-    if (!organization) {
+    if (!organization)
       throw new NotFoundException(
         'User is not associated with any organization',
       );
-    }
 
-    // Base data always returned
-    const baseData = {
+    const baseData: any = {
       id: organization.id,
       name: organization.name,
       address: organization.address,
@@ -109,9 +113,20 @@ export class OrganizationService {
         fullName: `${userProfile.first_name} ${userProfile.last_name}`,
         email,
       },
+      schools: organization.schools.map((school) => ({
+        id: school.id,
+        name: school.name,
+        email: school.email,
+        is_paid: school.is_paid,
+        events: school.events.map((event) => ({
+          id: event.id,
+          name: event.name,
+          date_time: event.date_time,
+          contents: event.contents,
+        })),
+      })),
     };
 
-    // If user is Admin or Moderator, include subscription and user count
     const roleName = userProfile.role?.name?.toLowerCase() ?? '';
     if (
       role === Role.ADMIN ||
@@ -120,18 +135,11 @@ export class OrganizationService {
       roleName === 'moderator'
     ) {
       const userCount = await this.prisma.profile.count({
-        where: {
-          organization_id: organization.id,
-        },
+        where: { organization_id: organization.id },
       });
-
-      return {
-        ...baseData,
-        userCount,
-      };
+      return { ...baseData, userCount };
     }
 
-    // Regular user — only basic details
     return baseData;
   }
 
