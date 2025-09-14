@@ -5,7 +5,7 @@ import { Roles } from 'src/common/decorator/roles.decorator';
 import { Role } from 'src/common/schema/roles.enum';
 
 @UseGuards(JwtAuthGuard)
-@Roles(Role.ADMIN, Role.USER, Role.MODERATOR)
+@Roles(Role.ADMIN, Role.USER, Role.MODERATOR, Role.SCHOOL)
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
