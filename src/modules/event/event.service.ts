@@ -478,11 +478,22 @@ export class EventService {
   }
 
   async getAllEventsByUserId(userId: number) {
+    // ✅ include school relation so we have its id
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { school: true }, // <-- important
+    });
+
+    // if user is linked to a school, include those events too
+    const orConditions: any[] = [{ user_id: userId }];
+    if (user?.school?.id) {
+      orConditions.push({ school_id: user.school.id });
+    }
+
     return this.prisma.event.findMany({
-      where: { user_id: userId },
+      where: { OR: orConditions },
       orderBy: { date_time: 'desc' },
       include: {
-        // ✅ Include all related contents for each event
         contents: true,
         school: {
           select: {
