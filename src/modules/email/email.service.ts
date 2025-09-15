@@ -87,7 +87,7 @@ export class EmailService {
     </table>
 
     <p style="font-size: 14px; color: #333; margin-top: 20px;">
-       Access all premium features is now available on your account.
+       Access to all premium features is now available on your account.
     </p>
 
     <p style="font-size: 14px; color: #555;">
