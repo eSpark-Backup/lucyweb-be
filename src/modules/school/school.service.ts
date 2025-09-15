@@ -350,17 +350,22 @@ export class SchoolService {
 
   async deleteSchool(id: number) {
     try {
-      // ── Fetch the school first
+      // ── Fetch the school first (include user_id to delete its own login user)
       const school = await this.prisma.school.findUnique({
         where: { id },
-        select: { id: true, organization_id: true, is_paid: true },
+        select: {
+          id: true,
+          organization_id: true,
+          is_paid: true,
+          user_id: true,
+        },
       });
 
       if (!school) {
         throw new HttpException('School not found', HttpStatus.NOT_FOUND);
       }
 
-      // ── Delete related events and contents inside a transaction
+      // ── Delete related records inside a single transaction
       await this.prisma.$transaction(async (tx) => {
         // 1️⃣ Delete all contents of the school’s events
         await tx.content.deleteMany({
@@ -376,6 +381,13 @@ export class SchoolService {
         await tx.school.delete({
           where: { id },
         });
+
+        // 4️⃣ Delete the school’s own login user so email can be reused
+        if (school.user_id) {
+          await tx.user.delete({
+            where: { id: school.user_id },
+          });
+        }
       });
 
       // ── Re-count paid schools after deletion
@@ -419,7 +431,8 @@ export class SchoolService {
       }
 
       return {
-        message: 'School deleted successfully (with all events & contents)',
+        message:
+          'School deleted successfully (with all events, contents & its user)',
         school_id: id,
         current_cost_per_school: costPerSchool,
         paid_school_count: org?.paid_school_count ?? 0,
