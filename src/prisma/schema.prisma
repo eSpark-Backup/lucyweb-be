@@ -65,7 +65,7 @@ model Event {
   image       String?
   contents    Content[]
   user        User      @relation(fields: [user_id], references: [id])
-  school      School?   @relation(fields: [school_id], references: [id])
+  school      School?   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }
 
 
@@ -141,7 +141,7 @@ model Content {
   content_type       String
   text_content       String
   attachment         String?
-  event              Event              @relation(fields: [event_id], references: [id])
+  event              Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
   content_recipients ContentRecipient[]
   created_at         DateTime           @default(now())
   updated_at         DateTime           @default(now()) @updatedAt
