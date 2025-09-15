@@ -86,6 +86,10 @@ export class EmailService {
       </tr>
     </table>
 
+    <p style="font-size: 14px; color: #333; margin-top: 20px;">
+       Access all premium features is now available on your account.
+    </p>
+
     <p style="font-size: 14px; color: #555;">
       We appreciate your business and look forward to serving you. If you have any questions regarding this payment, please contact our support team at
       <a href="mailto:support@${process.env.APP_DOMAIN || 'example.com'}" style="color: #1E90FF;">support@${process.env.APP_DOMAIN || 'example.com'}</a>.
@@ -226,8 +230,7 @@ export class EmailService {
           <ul style="font-size: 14px; color: #666; line-height: 1.6;">
             <li>Create and manage events</li>
             <li>Generate content using AI</li>
-            <li>Invite team members</li>
-            <li>Access all premium features</li>
+            <li>Invite team members (Admins only)</li>
           </ul>
         </div>
         
