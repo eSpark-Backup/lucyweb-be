@@ -350,7 +350,7 @@ export class SchoolService {
 
   async deleteSchool(id: number) {
     try {
-      // ── Fetch the school with paid status and org info
+      // ── Fetch the school first
       const school = await this.prisma.school.findUnique({
         where: { id },
         select: { id: true, organization_id: true, is_paid: true },
@@ -360,21 +360,36 @@ export class SchoolService {
         throw new HttpException('School not found', HttpStatus.NOT_FOUND);
       }
 
-      // ── Delete the school
-      await this.prisma.school.delete({ where: { id } });
+      // ── Delete related events and contents inside a transaction
+      await this.prisma.$transaction(async (tx) => {
+        // 1️⃣ Delete all contents of the school’s events
+        await tx.content.deleteMany({
+          where: { event: { school_id: id } },
+        });
+
+        // 2️⃣ Delete all events of the school
+        await tx.event.deleteMany({
+          where: { school_id: id },
+        });
+
+        // 3️⃣ Delete the school itself
+        await tx.school.delete({
+          where: { id },
+        });
+      });
 
       // ── Re-count paid schools after deletion
       const paidCount = await this.prisma.school.count({
         where: { organization_id: school.organization_id, is_paid: true },
       });
 
-      // ── Update organization’s paid_school_count to real count
+      // ── Update organization’s paid_school_count
       await this.prisma.organization.update({
         where: { id: school.organization_id },
         data: { paid_school_count: paidCount },
       });
 
-      // ── Get updated organization details for pricing checks
+      // ── Get updated org details for pricing checks
       const org = await this.prisma.organization.findUnique({
         where: { id: school.organization_id },
         select: {
@@ -385,7 +400,7 @@ export class SchoolService {
         },
       });
 
-      // ── Determine current per-school cost after this deletion
+      // ── Determine cost per school after deletion
       let costPerSchool = 50; // default
       if (org?.is_trust) {
         if (org.trust_locked) {
@@ -404,7 +419,7 @@ export class SchoolService {
       }
 
       return {
-        message: 'School deleted successfully',
+        message: 'School deleted successfully (with all events & contents)',
         school_id: id,
         current_cost_per_school: costPerSchool,
         paid_school_count: org?.paid_school_count ?? 0,
