@@ -261,12 +261,16 @@ export class SchoolService {
 
   async getSchoolById(id: number) {
     try {
-      // ✅ Fetch single school with organization, events, and event contents
       const school = await this.prisma.school.findUnique({
         where: { id },
         include: {
           organization: true,
-          events: { include: { contents: true } },
+          events: {
+            // 🚨 No select, just include full nested models
+            include: {
+              contents: { include: { content_recipients: true } },
+            },
+          },
         },
       });
 
