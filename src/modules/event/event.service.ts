@@ -110,6 +110,16 @@ export class EventService {
     });
     if (!user) throw new BadRequestException('User not found');
 
+    // ✅ Check for duplicate event name
+    const existingEvent = await this.prisma.event.findFirst({
+      where: { name: data.name },
+    });
+    if (existingEvent) {
+      throw new BadRequestException(
+        `Event with name "${data.name}" already exists.`,
+      );
+    }
+
     // Validate and normalize event date
     const eventDate = new Date(data.date_time);
     if (isNaN(eventDate.getTime())) {
@@ -185,9 +195,24 @@ export class EventService {
   async updateEvent(
     id: number,
     data: Prisma.EventUpdateInput & { school_email?: string | null },
-    userId?: number, // optional, pass logged-in user's ID
+    userId?: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
+    // ✅ Check for duplicate event name (if updating name)
+    if (data.name) {
+      const existingEvent = await this.prisma.event.findFirst({
+        where: {
+          name: data.name as string,
+          id: { not: id },
+        },
+      });
+      if (existingEvent) {
+        throw new BadRequestException(
+          `Another event with name "${data.name}" already exists.`,
+        );
+      }
+    }
+
     // ✅ Validate date_time if provided
     if (data.date_time) {
       const eventDate = new Date(data.date_time as string);
@@ -246,7 +271,7 @@ export class EventService {
         ? { time_span: parseInt(time_span, 10) }
         : { time_span }),
       image: imageUrl || existingImage,
-      ...(schoolToConnect ? { school: { connect: schoolToConnect } } : {}), // school is updated only if determined above
+      ...(schoolToConnect ? { school: { connect: schoolToConnect } } : {}),
     };
 
     return this.prisma.event.update({
