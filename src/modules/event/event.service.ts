@@ -266,9 +266,19 @@ export class EventService {
     });
   }
 
-  async deleteEvent(id: number): Promise<Event> {
-    await this.prisma.content.deleteMany({ where: { event_id: Number(id) } });
-    return this.prisma.event.delete({ where: { id: Number(id) } });
+  async deleteEvent(id: number): Promise<{ message: string; data: Event }> {
+    await this.prisma.content.deleteMany({
+      where: { event_id: Number(id) },
+    });
+
+    const deletedEvent = await this.prisma.event.delete({
+      where: { id: Number(id) },
+    });
+
+    return {
+      message: 'Event deleted successfully',
+      data: deletedEvent,
+    };
   }
 
   async getContentsByEventId(eventId: number): Promise<Content[]> {
@@ -410,12 +420,23 @@ export class EventService {
     return updatedContent;
   }
 
-  async deleteContent(id: number, eventId: number): Promise<Content> {
+  async deleteContent(
+    id: number,
+    eventId: number,
+  ): Promise<{ message: string; data: Content }> {
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
     if (!eventExists) throw new Error('Event not found.');
-    return this.prisma.content.delete({ where: { id: Number(id) } });
+
+    const deletedContent = await this.prisma.content.delete({
+      where: { id: Number(id) },
+    });
+
+    return {
+      message: 'Content deleted successfully',
+      data: deletedContent,
+    };
   }
 
   async uploadContentFile(file: Express.Multer.File): Promise<string> {

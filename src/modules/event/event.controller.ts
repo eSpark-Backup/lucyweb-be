@@ -90,7 +90,7 @@ export class EventController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SCHOOL, Role.USER)
   async deleteEvent(@Param('id') id: string) {
     return this.eventsService.deleteEvent(parseInt(id));
   }
@@ -134,11 +134,11 @@ export class EventController {
   }
 
   @Delete(':eventId/contents/:id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.USER, Role.SCHOOL)
   async deleteContent(
     @Param('id', ParseIntPipe) id: number,
     @Param('eventId', ParseIntPipe) eventId: number,
-  ): Promise<Content> {
+  ): Promise<{ message: string; data: Content }> {
     return this.eventsService.deleteContent(id, eventId);
   }
 
@@ -158,7 +158,7 @@ export class EventController {
   }
 
   @Post(':eventId/contents/:contentId/email')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.USER, Role.SCHOOL)
   async emailExistingContent(
     @Param('eventId', ParseIntPipe) eventId: number,
     @Param('contentId', ParseIntPipe) contentId: number,
