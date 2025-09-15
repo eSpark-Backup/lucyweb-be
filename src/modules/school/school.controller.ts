@@ -39,6 +39,7 @@ export class SchoolController {
 
   private formatSchoolResponse(school: any) {
     return {
+      // 🔹 All School fields
       id: school.id,
       name: school.name,
       address: school.address,
@@ -47,39 +48,31 @@ export class SchoolController {
       description: school.description,
       image: school.image,
       is_paid: school.is_paid,
+      created_at: school.created_at,
+      updated_at: school.updated_at,
+      cost: school.cost ?? null,
+
+      // 🔹 Organization (with extra fields if any in DB)
       organization: school.organization
         ? {
-            id: school.organization.id,
-            name: school.organization.name,
-            is_trust: school.organization.is_trust,
-            trust_locked: school.organization.trust_locked,
+            ...school.organization,
             selected_school_count:
               school.organization.selected_school_count ?? null,
             unit_price: school.organization.unit_price ?? null,
           }
         : null,
-      cost: school.cost ?? null,
-      created_at: school.created_at,
-      updated_at: school.updated_at,
 
-      // ✅ Include events with their contents
+      // 🔹 Events with every field + nested contents
       events:
         school.events?.map((event: any) => ({
-          id: event.id,
-          name: event.name,
-          date_time: event.date_time,
-          time_span: event.time_span,
-          image: event.image,
-          created_at: event.created_at,
-          updated_at: event.updated_at,
+          ...event, // includes id, name, type, date_time, description, user_id, school_id, image, created_at, updated_at, etc.
           contents:
             event.contents?.map((c: any) => ({
-              id: c.id,
-              title: c.title,
-              description: c.description,
-              file_url: c.file_url,
-              created_at: c.created_at,
-              updated_at: c.updated_at,
+              ...c, // includes id, event_id, content_type, text_content, attachment, created_at, updated_at
+              content_recipients:
+                c.content_recipients?.map((r: any) => ({
+                  ...r, // every field from ContentRecipient
+                })) ?? [],
             })) ?? [],
         })) ?? [],
     };
