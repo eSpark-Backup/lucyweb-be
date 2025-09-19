@@ -178,6 +178,7 @@ export class UserService {
             name: true,
             email: true,
             is_paid: true,
+            image: true,
             organization: {
               select: {
                 id: true,
@@ -396,7 +397,8 @@ export class UserService {
             id: user.school.id,
             name: user.school.name,
             email: user.school.email,
-            is_paid: user.school.is_paid, // ✅ include is_paid properly
+            is_paid: user.school.is_paid,
+            image: user.school.image,
             organization: user.school.organization
               ? {
                   id: user.school.organization.id,
