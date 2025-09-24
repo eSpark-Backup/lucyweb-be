@@ -269,37 +269,40 @@ export class EmailService {
     textContents: string[] | string,
     attachment?: string,
   ): string {
-    // Normalize to arrays
-    const typeArray = Array.isArray(contentTypes)
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    // Ensure we always have arrays (but do NOT split on commas)
+    const types = Array.isArray(contentTypes)
       ? contentTypes
-      : String(contentTypes)
-          .split(',')
-          .map((t) => t.trim());
-
-    const textArray = Array.isArray(textContents)
+      : [String(contentTypes)];
+    const texts = Array.isArray(textContents)
       ? textContents
-      : String(textContents)
-          .split('\n')
-          .map((t) => t.trim());
+      : [String(textContents)];
 
-    // Pair type with corresponding text (fallback to empty string if not found)
-    const sections = typeArray
-      .map((type, i) => {
-        const text = textArray[i] || '';
-        return `
-      <div style="margin-bottom:20px;">
-        <h3 style="color:#4A90E2; margin-bottom:8px;">${type.replace(/_/g, ' ')}</h3>
-        <p style="margin:0; font-size:15px; line-height:1.6;">${text}</p>
-      </div>
-    `;
-      })
-      .join('');
+    const pairedBlocks = types.map((type, i) => {
+      const text = texts[i] ?? ''; // empty if missing
+      return `
+      <div style="margin-bottom:24px;">
+        <h3 style="color:#4A90E2; margin:0 0 8px;">
+          ${escapeHtml(type)}
+        </h3>
+        <p style="white-space:pre-wrap; line-height:1.6; color:#333; margin:0;">
+          ${escapeHtml(text)}
+        </p>
+      </div>`;
+    });
 
     return `
-    <div style="font-family: Arial, sans-serif; line-height:1.6; padding:20px; border:1px solid #ccc; border-radius:5px;">
-      <h2 style="color:#333; margin-bottom:25px;">New Content Created</h2>
-      ${attachment ? `<img src="${attachment}" style="max-width:100%; height:auto; border-radius:5px; margin-bottom:20px;"/>` : ''}
-      ${sections}
+    <div style="font-family:Arial,sans-serif; line-height:1.6; padding:20px; border:1px solid #ccc; border-radius:5px;">
+      <h2 style="color:#333; margin-bottom:20px;">New Content Created</h2>
+      ${attachment ? `<img src="${escapeHtml(attachment)}" style="max-width:100%; height:auto; border-radius:5px; margin-bottom:20px;" />` : ''}
+      ${pairedBlocks.join('')}
     </div>
   `;
   }
