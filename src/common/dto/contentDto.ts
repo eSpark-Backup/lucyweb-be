@@ -9,6 +9,10 @@ export class CreateContentDto {
 
   @IsString()
   @IsNotEmpty()
+  event_name: string;
+
+  @IsString()
+  @IsNotEmpty()
   text_content: string;
 
   @IsOptional()
@@ -28,6 +32,10 @@ export class UpdateContentDto {
   @IsOptional()
   @IsString()
   content_type?: string;
+
+  @IsOptional()
+  @IsString()
+  event_name?: string;
 
   @IsOptional()
   @IsString()
