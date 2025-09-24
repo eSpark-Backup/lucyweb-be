@@ -332,30 +332,99 @@ export class EventService {
     return content;
   }
 
+  // async createContent(
+  //   eventId: number,
+  //   data: CreateContentDto,
+  //   userId: number,
+  // ): Promise<Content> {
+  //   const eventExists = await this.prisma.event.findUnique({
+  //     where: { id: Number(eventId) },
+  //   });
+  //   if (!eventExists) throw new NotFoundException('Event not found.');
+
+  //   const { content_recipients, post_method, ...contentData } = data;
+
+  //   const postMethod = await this.prisma.postMethod.findUnique({
+  //     where: { name: post_method },
+  //   });
+  //   if (!postMethod)
+  //     throw new NotFoundException(`Post method "${post_method}" not found.`);
+
+  //   const content = await this.prisma.content.create({
+  //     data: {
+  //       ...contentData,
+  //       content_type: Array.isArray(data.content_types)
+  //         ? data.content_types.join(',')
+  //         : data.content_types,
+  //       event: { connect: { id: Number(eventId) } },
+  //       content_recipients: content_recipients
+  //         ? {
+  //             create: content_recipients.map((recipient) => ({
+  //               recipient,
+  //               method_id: postMethod.id,
+  //               user_id: userId,
+  //             })),
+  //           }
+  //         : {},
+  //     },
+  //   });
+
+  //   const { name } = await this.prisma.event.findFirst({
+  //     where: { id: Number(eventId) },
+  //   });
+  //   if (content_recipients?.length) {
+  //     const emailSubject = `New Content Created for Event: ${name}`;
+  //     const emailBody = this.emailService.createEmailBody(
+  //       content.content_type ?? contentData.content_types?.join(', '),
+  //       content.text_content,
+  //       content.attachment,
+  //     );
+  //     await Promise.all(
+  //       content_recipients.map((recipient) =>
+  //         this.emailService.sendEmail(recipient, emailSubject, emailBody),
+  //       ),
+  //     );
+  //   }
+  //   return content;
+  // }
+
   async createContent(
     eventId: number,
     data: CreateContentDto,
     userId: number,
   ): Promise<Content> {
-    const eventExists = await this.prisma.event.findUnique({
+    // ✅ Check if event exists
+    const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
-    if (!eventExists) throw new NotFoundException('Event not found.');
+    if (!event) throw new NotFoundException('Event not found.');
 
-    const { content_recipients, post_method, ...contentData } = data;
+    const {
+      content_recipients,
+      post_method,
+      content_types,
+      text_content,
+      attachment,
+    } = data;
 
+    // ✅ Validate post method
     const postMethod = await this.prisma.postMethod.findUnique({
       where: { name: post_method },
     });
-    if (!postMethod)
+    if (!postMethod) {
       throw new NotFoundException(`Post method "${post_method}" not found.`);
+    }
 
+    // ✅ Create content
     const content = await this.prisma.content.create({
       data: {
-        ...contentData,
-        content_type: contentData.content_types?.join(', ') || null,
+        content_type: Array.isArray(content_types)
+          ? content_types.join(',')
+          : content_types,
+        text_content,
+        attachment: attachment ?? null,
         event: { connect: { id: Number(eventId) } },
-        content_recipients: content_recipients
+        content_recipients: content_recipients?.length
           ? {
               create: content_recipients.map((recipient) => ({
                 recipient,
@@ -363,28 +432,88 @@ export class EventService {
                 user_id: userId,
               })),
             }
-          : {},
+          : undefined,
       },
     });
 
-    const { name } = await this.prisma.event.findFirst({
-      where: { id: Number(eventId) },
-    });
+    // ✅ Send emails to recipients
     if (content_recipients?.length) {
-      const emailSubject = `New Content Created for Event: ${name}`;
+      const emailSubject = `New Content Created for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
-        content.content_type ?? contentData.content_types?.join(', '),
+        content.content_type,
         content.text_content,
         content.attachment,
       );
+
       await Promise.all(
         content_recipients.map((recipient) =>
           this.emailService.sendEmail(recipient, emailSubject, emailBody),
         ),
       );
     }
+
     return content;
   }
+
+  // async updateContent(
+  //   id: number,
+  //   eventId: number,
+  //   data: UpdateContentDto,
+  //   userId: number,
+  // ): Promise<Content> {
+  //   const eventExists = await this.prisma.event.findUnique({
+  //     where: { id: Number(eventId) },
+  //   });
+  //   if (!eventExists) throw new NotFoundException('Event not found.');
+
+  //   const { content_recipients, post_method, ...contentData } = data;
+
+  //   const contentUpdateData: Prisma.ContentUpdateInput = {
+  //     ...contentData,
+  //     content_recipients: content_recipients
+  //       ? {
+  //           deleteMany: { content_id: Number(id) },
+  //           create: await Promise.all(
+  //             content_recipients.map(async (recipient) => {
+  //               const postMethod = await this.prisma.postMethod.findUnique({
+  //                 where: { name: post_method },
+  //               });
+  //               if (!postMethod)
+  //                 throw new NotFoundException(
+  //                   `Post method "${post_method}" not found.`,
+  //                 );
+
+  //               return {
+  //                 recipient,
+  //                 user: { connect: { id: userId } },
+  //                 post_method: { connect: { id: postMethod.id } },
+  //               };
+  //             }),
+  //           ),
+  //         }
+  //       : undefined,
+  //   };
+
+  //   const updatedContent = await this.prisma.content.update({
+  //     where: { id: Number(id) },
+  //     data: contentUpdateData,
+  //   });
+
+  //   if (content_recipients?.length) {
+  //     const emailSubject = `Content Updated for Event ID: ${eventId}`;
+  //     const emailBody = this.emailService.createEmailBody(
+  //       updatedContent.content_type,
+  //       updatedContent.text_content,
+  //       updatedContent.attachment,
+  //     );
+  //     await Promise.all(
+  //       content_recipients.map((recipient) =>
+  //         this.emailService.sendEmail(recipient, emailSubject, emailBody),
+  //       ),
+  //     );
+  //   }
+  //   return updatedContent;
+  // }
 
   async updateContent(
     id: number,
@@ -392,16 +521,30 @@ export class EventService {
     data: UpdateContentDto,
     userId: number,
   ): Promise<Content> {
-    const eventExists = await this.prisma.event.findUnique({
+    // ✅ Ensure event exists
+    const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
-    if (!eventExists) throw new NotFoundException('Event not found.');
+    if (!event) throw new NotFoundException('Event not found.');
 
-    const { content_recipients, post_method, ...contentData } = data;
+    const {
+      content_recipients,
+      post_method,
+      content_types,
+      text_content,
+      attachment,
+    } = data;
 
+    // ✅ Prepare content update payload
     const contentUpdateData: Prisma.ContentUpdateInput = {
-      ...contentData,
-      content_recipients: content_recipients
+      ...(content_types && {
+        content_type: Array.isArray(content_types)
+          ? content_types.join(',')
+          : content_types,
+      }),
+      ...(text_content !== undefined && { text_content }),
+      ...(attachment !== undefined && { attachment }),
+      content_recipients: content_recipients?.length
         ? {
             deleteMany: { content_id: Number(id) },
             create: await Promise.all(
@@ -425,24 +568,28 @@ export class EventService {
         : undefined,
     };
 
+    // ✅ Update content
     const updatedContent = await this.prisma.content.update({
       where: { id: Number(id) },
       data: contentUpdateData,
     });
 
+    // ✅ Send emails to recipients if any
     if (content_recipients?.length) {
-      const emailSubject = `Content Updated for Event ID: ${eventId}`;
+      const emailSubject = `Content Updated for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
         updatedContent.content_type,
         updatedContent.text_content,
         updatedContent.attachment,
       );
+
       await Promise.all(
         content_recipients.map((recipient) =>
           this.emailService.sendEmail(recipient, emailSubject, emailBody),
         ),
       );
     }
+
     return updatedContent;
   }
 
@@ -469,27 +616,55 @@ export class EventService {
     return this.storageService.uploadFile(file);
   }
 
+  // async emailContent(
+  //   eventId: number,
+  //   contentId: number,
+  //   userEmail: string,
+  // ): Promise<void> {
+  //   const content = await this.prisma.content.findUnique({
+  //     where: { id: Number(contentId) },
+  //     include: { event: true },
+  //   });
+
+  //   if (!content || content.event.id !== eventId) {
+  //     throw new Error('Content not found or does not belong to this event.');
+  //   }
+
+  //   const emailSubject = `Content from Event ID: ${eventId}`;
+  //   const emailBody = `
+  //     <h1>Content Information</h1>
+  //     <p>Title: ${content.content_type}</p>
+  //     <p>Text: ${content.text_content}</p>
+  //     <p>Attachment: ${content.attachment || 'No attachment'}</p>
+  //   `;
+  //   await this.emailService.sendEmail(userEmail, emailSubject, emailBody);
+  // }
+
   async emailContent(
     eventId: number,
     contentId: number,
     userEmail: string,
   ): Promise<void> {
+    // ✅ Fetch content and include event
     const content = await this.prisma.content.findUnique({
       where: { id: Number(contentId) },
       include: { event: true },
     });
 
-    if (!content || content.event.id !== eventId) {
-      throw new Error('Content not found or does not belong to this event.');
+    if (!content || content.event.id !== Number(eventId)) {
+      throw new NotFoundException(
+        'Content not found or does not belong to this event.',
+      );
     }
 
-    const emailSubject = `Content from Event ID: ${eventId}`;
-    const emailBody = `
-      <h1>Content Information</h1>
-      <p>Title: ${content.content_type}</p>
-      <p>Text: ${content.text_content}</p>
-      <p>Attachment: ${content.attachment || 'No attachment'}</p>
-    `;
+    // ✅ Use event name in subject if available
+    const emailSubject = `Content from Event: ${content.event.name}`;
+    const emailBody = this.emailService.createEmailBody(
+      content.content_type,
+      content.text_content,
+      content.attachment ?? null,
+    );
+
     await this.emailService.sendEmail(userEmail, emailSubject, emailBody);
   }
 
@@ -533,32 +708,71 @@ export class EventService {
     });
   }
 
+  // async sendEmailToRecipients(
+  //   eventId: number,
+  //   data: SendReminderEmailDto,
+  // ): Promise<{ success: boolean }> {
+  //   const event = await this.prisma.event.findUnique({
+  //     where: { id: eventId },
+  //   });
+  //   if (!event) throw new NotFoundException('Event not found');
+
+  //   const { content_recipients, content_type, text_content, attachment } = data;
+  //   if (!content_recipients?.length) {
+  //     throw new BadRequestException('Recipients list cannot be empty');
+  //   }
+
+  //   const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
+  //   const emailBody = this.emailService.createEmailBody(
+  //     content_type,
+  //     text_content,
+  //     attachment ?? null,
+  //   );
+
+  //   await Promise.all(
+  //     content_recipients.map((recipient) =>
+  //       this.emailService.sendEmail(recipient, emailSubject, emailBody),
+  //     ),
+  //   );
+  //   return { success: true };
+  // }
+
   async sendEmailToRecipients(
     eventId: number,
     data: SendReminderEmailDto,
   ): Promise<{ success: boolean }> {
+    // ✅ Fetch event
     const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
+      where: { id: Number(eventId) },
     });
     if (!event) throw new NotFoundException('Event not found');
 
     const { content_recipients, content_type, text_content, attachment } = data;
-    if (!content_recipients?.length) {
+
+    // ✅ Validate recipients
+    if (
+      !content_recipients ||
+      !Array.isArray(content_recipients) ||
+      !content_recipients.length
+    ) {
       throw new BadRequestException('Recipients list cannot be empty');
     }
 
+    // ✅ Prepare email
     const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
     const emailBody = this.emailService.createEmailBody(
-      content_type,
+      Array.isArray(content_type) ? content_type.join(', ') : content_type,
       text_content,
       attachment ?? null,
     );
 
+    // ✅ Send emails in parallel
     await Promise.all(
       content_recipients.map((recipient) =>
         this.emailService.sendEmail(recipient, emailSubject, emailBody),
       ),
     );
+
     return { success: true };
   }
 }
