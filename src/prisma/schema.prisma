@@ -137,8 +137,8 @@ model Role {
 model Content {
   id                 Int                @id @default(autoincrement())
   event_id           Int
-  content_type       String
-  text_content       String
+  content_type       Json
+  text_content       Json
   attachment         String?
   event              Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
   content_recipients ContentRecipient[]

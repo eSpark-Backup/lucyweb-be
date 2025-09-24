@@ -4,15 +4,16 @@ export class CreateContentDto {
   @IsArray()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
-  content_types: string[]; // ✅ supports one or many content types
+  content_types: string[];
 
   @IsString()
   @IsNotEmpty()
   event_name: string;
 
-  @IsString()
-  @IsNotEmpty()
-  text_content: string;
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  text_content: string[];
 
   @IsOptional()
   @IsString()
@@ -32,15 +33,16 @@ export class UpdateContentDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  content_types?: string[]; // ✅ can update to one or many
+  content_types?: string[];
 
   @IsOptional()
   @IsString()
   event_name?: string;
 
   @IsOptional()
-  @IsString()
-  text_content?: string;
+  @IsArray()
+  @IsString({ each: true })
+  text_content: string[];
 
   @IsOptional()
   @IsString()

@@ -265,22 +265,42 @@ export class EmailService {
   }
 
   createEmailBody(
-    contentType: string,
-    body: string,
-    attachment: string,
+    contentTypes: string[] | string,
+    textContents: string[] | string,
+    attachment?: string,
   ): string {
-    const emailBody = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; border: 1px solid #ccc; border-radius: 5px;">
-        <h2 style="color: #4A90E2;">New Content Created</h2>
-        <img src="${attachment || 'https://placeholder.com/400x200'}" 
-             alt="Content attachment" 
-             style="max-width: 100%; height: auto; border-radius: 5px;"/>
-        
-        <p style="font-size: 18px; margin: 10px 0;">Here's the content:</p>
-        <p style="font-size: 16px;"><strong>Content Type:</strong> ${contentType}</p>
-        <p style="font-size: 16px;">${body}</p>
+    // Normalize to arrays
+    const typeArray = Array.isArray(contentTypes)
+      ? contentTypes
+      : String(contentTypes)
+          .split(',')
+          .map((t) => t.trim());
+
+    const textArray = Array.isArray(textContents)
+      ? textContents
+      : String(textContents)
+          .split('\n')
+          .map((t) => t.trim());
+
+    // Pair type with corresponding text (fallback to empty string if not found)
+    const sections = typeArray
+      .map((type, i) => {
+        const text = textArray[i] || '';
+        return `
+      <div style="margin-bottom:20px;">
+        <h3 style="color:#4A90E2; margin-bottom:8px;">${type.replace(/_/g, ' ')}</h3>
+        <p style="margin:0; font-size:15px; line-height:1.6;">${text}</p>
       </div>
     `;
-    return emailBody;
+      })
+      .join('');
+
+    return `
+    <div style="font-family: Arial, sans-serif; line-height:1.6; padding:20px; border:1px solid #ccc; border-radius:5px;">
+      <h2 style="color:#333; margin-bottom:25px;">New Content Created</h2>
+      ${attachment ? `<img src="${attachment}" style="max-width:100%; height:auto; border-radius:5px; margin-bottom:20px;"/>` : ''}
+      ${sections}
+    </div>
+  `;
   }
 }

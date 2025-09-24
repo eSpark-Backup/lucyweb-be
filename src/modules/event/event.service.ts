@@ -10,6 +10,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
+import { json } from 'stream/consumers';
 
 @Injectable()
 export class EventService {
@@ -405,10 +406,8 @@ export class EventService {
     // ✅ Create content
     const content = await this.prisma.content.create({
       data: {
-        content_type: Array.isArray(content_types)
-          ? content_types.join(',')
-          : content_types,
-        text_content,
+        content_type: content_types,
+        text_content: text_content,
         attachment: attachment ?? null,
         event: { connect: { id: Number(eventId) } },
         content_recipients: content_recipients?.length
@@ -427,8 +426,8 @@ export class EventService {
     if (content_recipients?.length) {
       const emailSubject = `New Content Created for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
-        content.content_type,
-        content.text_content,
+        (content.content_type as string[]).join(', '),
+        (content.text_content as string[]).join('\n'),
         content.attachment,
       );
 
@@ -524,11 +523,7 @@ export class EventService {
 
     // ✅ Prepare content update payload
     const contentUpdateData: Prisma.ContentUpdateInput = {
-      ...(content_types && {
-        content_type: Array.isArray(content_types)
-          ? content_types.join(',')
-          : content_types,
-      }),
+      ...(content_types && { content_type: content_types }),
       ...(text_content !== undefined && { text_content }),
       ...(attachment !== undefined && { attachment }),
       content_recipients: content_recipients?.length
@@ -565,8 +560,8 @@ export class EventService {
     if (content_recipients?.length) {
       const emailSubject = `Content Updated for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
-        updatedContent.content_type,
-        updatedContent.text_content,
+        (updatedContent.content_type as string[]).join(', '),
+        (updatedContent.text_content as string[]).join('\n'),
         updatedContent.attachment,
       );
 
@@ -647,8 +642,8 @@ export class EventService {
     // ✅ Use event name in subject if available
     const emailSubject = `Content from Event: ${content.event.name}`;
     const emailBody = this.emailService.createEmailBody(
-      content.content_type,
-      content.text_content,
+      (content.content_type as string[]).join(', '),
+      (content.text_content as string[]).join('\n'),
       content.attachment ?? null,
     );
 
