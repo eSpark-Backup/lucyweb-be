@@ -55,7 +55,6 @@ model School {
 
 model Event {
   id          Int       @id @default(autoincrement())
-  time_span   Int
   name        String
   type        String?
   date_time   DateTime
