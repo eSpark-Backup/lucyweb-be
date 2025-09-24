@@ -23,7 +23,8 @@ export class AiService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
+        temperature: 0.8, // encourage natural, human-like variety
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
       });
@@ -31,7 +32,10 @@ export class AiService {
       this.totalRequests++;
       this.totalTokens += response.usage?.total_tokens || 0;
 
-      return response.choices[0].message.content.trim();
+      // Ensure we return a complete sentence
+      let text = (response.choices[0].message.content || '').trim();
+      if (!/[.!?]$/.test(text)) text += '.';
+      return text;
     } catch (error) {
       console.error('Error generating content: ', error);
       throw new Error('Failed to generate content.');
@@ -43,21 +47,23 @@ export class AiService {
     promptText: string,
     contentType: string,
   ): string {
-    const styleInstruction =
-      'Use British English spelling and a neutral, professional tone.';
+    const baseInstruction =
+      'Write in natural, conversational British English that sounds human-written. Avoid generic AI phrasing and add small, realistic details where appropriate.';
     console.log('Content type received:', contentType);
 
     switch (contentType) {
       case 'press_release':
-        return `${styleInstruction} Write a 3-paragraph, 600-word press release about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Produce a detailed press release of more than 600 words (around 4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}".`;
       case 'instagram_post':
-        return `${styleInstruction} Write an Instagram post about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags to suit Instagram culture.`;
       case 'facebook_post':
-        return `${styleInstruction} Write a Facebook post about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Use a community-oriented tone and include a call to action.`;
       case 'newsletter':
-        return `${styleInstruction} Write a 100-word paragraph about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}".`;
       case 'summary':
-        return `${styleInstruction} Write a concise 2-3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
+      case 'governor_summary':
+        return `${baseInstruction} Provide an authoritative yet approachable summary for a briefing of governor about "${promptText}" regarding the event titled "${eventName}". Limit to 2 to 3 sentences.`;
       default:
         throw new Error('Invalid content type');
     }
@@ -66,14 +72,17 @@ export class AiService {
   private getMaxTokens(contentType: string): number {
     switch (contentType) {
       case 'press_release':
-        return 600; // Adjust the max tokens based on your needs
+        return 1000; // enough for 600+ words
       case 'instagram_post':
       case 'facebook_post':
-        return 150; // Assuming short posts
+        return 250; // longer captions without truncation
       case 'newsletter':
-        return 100; // Short paragraph
+        return 150;
+      case 'governor_summary':
+      case 'summary':
+        return 150;
       default:
-        return 100; // Default to 100 if type is unknown
+        return 150;
     }
   }
 
