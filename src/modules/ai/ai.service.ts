@@ -66,17 +66,17 @@ export class AiService {
 
     switch (contentType) {
       case 'press_release':
-        return `${baseInstruction} Produce a detailed press release of more than 600 words (4–5 paragraphs) about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
       case 'instagram_post':
-        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags.`;
+        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags. Don't use bold styling.`;
       case 'facebook_post':
-        return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Use a community-oriented tone and include a call to action.`;
+        return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Use a community-oriented tone and include a call to action. Don't use bold styling.`;
       case 'newsletter':
-        return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
       case 'summary':
-        return `${baseInstruction} Write a concise 2–3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
       case 'governor_summary':
-        return `${baseInstruction} Provide an authoritative yet approachable 2–3 sentence briefing for the governor about "${promptText}" regarding the event titled "${eventName}".`;
+        return `${baseInstruction} Provide an authoritative yet approachable 2 to 3 sentence briefing for the governor about "${promptText}" regarding the event titled "${eventName}". Don't use bold styling.`;
       default:
         throw new Error('Invalid content type');
     }
