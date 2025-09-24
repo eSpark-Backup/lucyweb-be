@@ -353,6 +353,7 @@ export class EventService {
     const content = await this.prisma.content.create({
       data: {
         ...contentData,
+        content_type: contentData.content_types?.join(', ') || null,
         event: { connect: { id: Number(eventId) } },
         content_recipients: content_recipients
           ? {
@@ -372,7 +373,7 @@ export class EventService {
     if (content_recipients?.length) {
       const emailSubject = `New Content Created for Event: ${name}`;
       const emailBody = this.emailService.createEmailBody(
-        content.content_type,
+        content.content_type ?? contentData.content_types?.join(', '),
         content.text_content,
         content.attachment,
       );

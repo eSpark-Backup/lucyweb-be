@@ -13,35 +13,48 @@ export class AiService {
     });
   }
 
+  /**
+   * Accepts one or multiple content types and returns
+   * an array of objects with each content_type and its generated text.
+   */
   async generateContent(
     eventName: string,
     promptText: string,
-    contentType: string,
-  ): Promise<string> {
-    const prompt = this.constructPrompt(eventName, promptText, contentType);
-    const maxTokens = this.getMaxTokens(contentType);
+    contentTypes: string | string[],
+  ): Promise<{ content_type: string; text: string }[]> {
+    const types = Array.isArray(contentTypes) ? contentTypes : [contentTypes];
+    const results: { content_type: string; text: string }[] = [];
 
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        temperature: 0.8, // encourage natural, human-like variety
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: maxTokens,
-      });
+    // Loop to generate text for each content_type
+    for (const type of types) {
+      const prompt = this.constructPrompt(eventName, promptText, type);
+      const maxTokens = this.getMaxTokens(type);
 
-      this.totalRequests++;
-      this.totalTokens += response.usage?.total_tokens || 0;
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          temperature: 0.8,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: maxTokens,
+        });
 
-      // Ensure we return a complete sentence
-      let text = (response.choices[0].message.content || '').trim();
-      if (!/[.!?]$/.test(text)) text += '.';
-      return text;
-    } catch (error) {
-      console.error('Error generating content: ', error);
-      throw new Error('Failed to generate content.');
+        this.totalRequests++;
+        this.totalTokens += response.usage?.total_tokens || 0;
+
+        let text = (response.choices[0].message.content || '').trim();
+        if (!/[.!?]$/.test(text)) text += '.';
+
+        results.push({ content_type: type, text });
+      } catch (error) {
+        console.error(`Error generating content for ${type}:`, error);
+        throw new Error(`Failed to generate content for type: ${type}`);
+      }
     }
+
+    return results;
   }
 
+  /** Build the prompt text for OpenAI based on content type */
   private constructPrompt(
     eventName: string,
     promptText: string,
@@ -53,29 +66,30 @@ export class AiService {
 
     switch (contentType) {
       case 'press_release':
-        return `${baseInstruction} Produce a detailed press release of more than 600 words (around 4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Produce a detailed press release of more than 600 words (4–5 paragraphs) about "${promptText}" for the event titled "${eventName}".`;
       case 'instagram_post':
-        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags to suit Instagram culture.`;
+        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags.`;
       case 'facebook_post':
         return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Use a community-oriented tone and include a call to action.`;
       case 'newsletter':
-        return `${baseInstruction} Write more than 200-words newsletter paragraph about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}".`;
       case 'summary':
-        return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write a concise 2–3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
       case 'governor_summary':
-        return `${baseInstruction} Provide an authoritative yet approachable summary for a briefing of governor about "${promptText}" regarding the event titled "${eventName}". Limit to 2 to 3 sentences.`;
+        return `${baseInstruction} Provide an authoritative yet approachable 2–3 sentence briefing for the governor about "${promptText}" regarding the event titled "${eventName}".`;
       default:
         throw new Error('Invalid content type');
     }
   }
 
+  /** Set token limits according to the content type */
   private getMaxTokens(contentType: string): number {
     switch (contentType) {
       case 'press_release':
-        return 1000; // enough for 600+ words
+        return 1000;
       case 'instagram_post':
       case 'facebook_post':
-        return 250; // longer captions without truncation
+        return 250;
       case 'newsletter':
         return 350;
       case 'governor_summary':
@@ -86,6 +100,7 @@ export class AiService {
     }
   }
 
+  /** Track and return total request/token usage */
   async checkUsage(): Promise<any> {
     return {
       status: 'ok',
