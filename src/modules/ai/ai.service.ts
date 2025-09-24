@@ -59,7 +59,7 @@ export class AiService {
       case 'facebook_post':
         return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Use a community-oriented tone and include a call to action.`;
       case 'newsletter':
-        return `${baseInstruction} Write more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}".`;
+        return `${baseInstruction} Write more than 200-words newsletter paragraph about "${promptText}" for the event titled "${eventName}".`;
       case 'summary':
         return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}".`;
       case 'governor_summary':
@@ -77,7 +77,7 @@ export class AiService {
       case 'facebook_post':
         return 250; // longer captions without truncation
       case 'newsletter':
-        return 150;
+        return 350;
       case 'governor_summary':
       case 'summary':
         return 150;
