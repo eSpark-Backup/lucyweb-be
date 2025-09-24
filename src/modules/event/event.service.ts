@@ -129,15 +129,6 @@ export class EventService {
       throw new BadRequestException('Cannot create events in the past');
     }
 
-    // Validate/convert time_span
-    const fixedTimeSpan =
-      typeof (data as any).time_span === 'string'
-        ? parseInt((data as any).time_span, 10)
-        : (data as any).time_span;
-    if (isNaN(fixedTimeSpan)) {
-      throw new BadRequestException('Invalid time_span: must be a number');
-    }
-
     // Optional image upload
     let imageUrl: string | undefined;
     if (file) {
@@ -173,7 +164,6 @@ export class EventService {
       data: {
         ...rest,
         date_time: eventDate,
-        time_span: fixedTimeSpan,
         image: imageUrl,
         user: { connect: { id: userId } },
         school: { connect: schoolToConnect },
@@ -263,13 +253,10 @@ export class EventService {
       existingImage = existingEvent?.image || null;
     }
 
-    const { contents, time_span, school_email, ...eventData } = data;
+    const { contents, school_email, ...eventData } = data;
 
     const updatePayload: Prisma.EventUpdateInput = {
       ...eventData,
-      ...(typeof time_span === 'string'
-        ? { time_span: parseInt(time_span, 10) }
-        : { time_span }),
       image: imageUrl || existingImage,
       ...(schoolToConnect ? { school: { connect: schoolToConnect } } : {}),
     };
