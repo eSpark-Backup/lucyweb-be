@@ -12,6 +12,10 @@ import { EmailService } from '../email/email.service';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
 import { json } from 'stream/consumers';
 
+interface ContentResponse extends Content {
+  content_types: Content['content_type'];
+}
+
 @Injectable()
 export class EventService {
   constructor(
@@ -104,14 +108,12 @@ export class EventService {
     userId: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    // Ensure the user exists and include linked school
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { school: true },
     });
     if (!user) throw new BadRequestException('User not found');
 
-    // ✅ Check for duplicate event name
     const existingEvent = await this.prisma.event.findFirst({
       where: { name: data.name },
     });
@@ -121,7 +123,6 @@ export class EventService {
       );
     }
 
-    // Validate and normalize event date
     const eventDate = new Date(data.date_time);
     if (isNaN(eventDate.getTime())) {
       throw new BadRequestException('Invalid date_time format');
@@ -130,15 +131,12 @@ export class EventService {
       throw new BadRequestException('Cannot create events in the past');
     }
 
-    // Optional image upload
     let imageUrl: string | undefined;
     if (file) {
       imageUrl = await this.storageService.uploadFile(file);
     }
 
-    // Determine school association strictly by email or fallback to user's own school
     let schoolToConnect: { id: number } | undefined;
-
     if (data.school_email) {
       const school = await this.prisma.school.findUnique({
         where: { email: data.school_email },
@@ -189,13 +187,9 @@ export class EventService {
     userId?: number,
     file?: Express.Multer.File,
   ): Promise<Event> {
-    // ✅ Check for duplicate event name (if updating name)
     if (data.name) {
       const existingEvent = await this.prisma.event.findFirst({
-        where: {
-          name: data.name as string,
-          id: { not: id },
-        },
+        where: { name: data.name as string, id: { not: id } },
       });
       if (existingEvent) {
         throw new BadRequestException(
@@ -204,7 +198,6 @@ export class EventService {
       }
     }
 
-    // ✅ Validate date_time if provided
     if (data.date_time) {
       const eventDate = new Date(data.date_time as string);
       if (isNaN(eventDate.getTime())) {
@@ -218,11 +211,9 @@ export class EventService {
       data.date_time = new Date(eventDate.getTime());
     }
 
-    // ✅ Handle image upload
     let imageUrl: string | undefined;
     if (file) imageUrl = await this.storageService.uploadFile(file);
 
-    // ✅ Determine school by email or fallback to logged-in user's school
     let schoolToConnect: { id: number } | undefined;
     if (data.school_email) {
       const school = await this.prisma.school.findUnique({
@@ -244,7 +235,6 @@ export class EventService {
       }
     }
 
-    // ✅ Keep existing image if none uploaded
     let existingImage: string | null = null;
     if (!file) {
       const existingEvent = await this.prisma.event.findUnique({
@@ -280,30 +270,25 @@ export class EventService {
   }
 
   async deleteEvent(id: number): Promise<{ message: string; data: Event }> {
-    await this.prisma.content.deleteMany({
-      where: { event_id: Number(id) },
-    });
-
+    await this.prisma.content.deleteMany({ where: { event_id: Number(id) } });
     const deletedEvent = await this.prisma.event.delete({
       where: { id: Number(id) },
     });
-
-    return {
-      message: 'Event deleted successfully',
-      data: deletedEvent,
-    };
+    return { message: 'Event deleted successfully', data: deletedEvent };
   }
 
-  async getContentsByEventId(eventId: number): Promise<Content[]> {
-    return this.prisma.content.findMany({
+  // ✅ Updated to return content_types
+  async getContentsByEventId(eventId: number): Promise<ContentResponse[]> {
+    const contents = await this.prisma.content.findMany({
       where: { event_id: Number(eventId) },
     });
+    return contents.map((c) => ({ ...c, content_types: c.content_type }));
   }
 
   async getContentById(
     eventId: number,
     contentId: number,
-  ): Promise<Content | null> {
+  ): Promise<ContentResponse | null> {
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
@@ -317,15 +302,14 @@ export class EventService {
     if (!content || content.event.id !== eventId) {
       throw new NotFoundException('Content not found for this event.');
     }
-    return content;
+    return { ...content, content_types: content.content_type };
   }
 
   async createContent(
     eventId: number,
     data: CreateContentDto,
     userId: number,
-  ): Promise<Content> {
-    // ✅ Check if event exists
+  ): Promise<ContentResponse> {
     const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
@@ -339,7 +323,6 @@ export class EventService {
       attachment,
     } = data;
 
-    // ✅ Validate post method
     const postMethod = await this.prisma.postMethod.findUnique({
       where: { name: post_method },
     });
@@ -347,11 +330,10 @@ export class EventService {
       throw new NotFoundException(`Post method "${post_method}" not found.`);
     }
 
-    // ✅ Create content
     const content = await this.prisma.content.create({
       data: {
         content_type: content_types,
-        text_content: text_content,
+        text_content,
         attachment: attachment ?? null,
         event: { connect: { id: Number(eventId) } },
         content_recipients: content_recipients?.length
@@ -366,7 +348,6 @@ export class EventService {
       },
     });
 
-    // ✅ Send emails to recipients
     if (content_recipients?.length) {
       const emailSubject = `New Content Created for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
@@ -382,7 +363,7 @@ export class EventService {
       );
     }
 
-    return content;
+    return { ...content, content_types: content.content_type };
   }
 
   async updateContent(
@@ -390,8 +371,7 @@ export class EventService {
     eventId: number,
     data: UpdateContentDto,
     userId: number,
-  ): Promise<Content> {
-    // ✅ Ensure event exists
+  ): Promise<ContentResponse> {
     const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
@@ -405,7 +385,6 @@ export class EventService {
       attachment,
     } = data;
 
-    // ✅ Prepare content update payload
     const contentUpdateData: Prisma.ContentUpdateInput = {
       ...(content_types && { content_type: content_types }),
       ...(text_content !== undefined && { text_content }),
@@ -434,13 +413,11 @@ export class EventService {
         : undefined,
     };
 
-    // ✅ Update content
     const updatedContent = await this.prisma.content.update({
       where: { id: Number(id) },
       data: contentUpdateData,
     });
 
-    // ✅ Send emails to recipients if any
     if (content_recipients?.length) {
       const emailSubject = `Content Updated for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
@@ -456,13 +433,13 @@ export class EventService {
       );
     }
 
-    return updatedContent;
+    return { ...updatedContent, content_types: updatedContent.content_type };
   }
 
   async deleteContent(
     id: number,
     eventId: number,
-  ): Promise<{ message: string; data: Content }> {
+  ): Promise<{ message: string; data: ContentResponse }> {
     const eventExists = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
@@ -474,7 +451,7 @@ export class EventService {
 
     return {
       message: 'Content deleted successfully',
-      data: deletedContent,
+      data: { ...deletedContent, content_types: deletedContent.content_type },
     };
   }
 
@@ -487,7 +464,6 @@ export class EventService {
     contentId: number,
     userEmail: string,
   ): Promise<void> {
-    // ✅ Fetch content and include event
     const content = await this.prisma.content.findUnique({
       where: { id: Number(contentId) },
       include: { event: true },
@@ -499,7 +475,6 @@ export class EventService {
       );
     }
 
-    // ✅ Use event name in subject if available
     const emailSubject = `Content from Event: ${content.event.name}`;
     const emailBody = this.emailService.createEmailBody(
       content.content_type as string[],
@@ -521,13 +496,11 @@ export class EventService {
   }
 
   async getAllEventsByUserId(userId: number) {
-    // ✅ include school relation so we have its id
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { school: true }, // <-- important
+      include: { school: true },
     });
 
-    // if user is linked to a school, include those events too
     const orConditions: any[] = [{ user_id: userId }];
     if (user?.school?.id) {
       orConditions.push({ school_id: user.school.id });
@@ -554,7 +527,6 @@ export class EventService {
     eventId: number,
     data: SendReminderEmailDto,
   ): Promise<{ success: boolean }> {
-    // ✅ Fetch event
     const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
     });
@@ -562,7 +534,6 @@ export class EventService {
 
     const { content_recipients, content_type, text_content, attachment } = data;
 
-    // ✅ Validate recipients
     if (
       !content_recipients ||
       !Array.isArray(content_recipients) ||
@@ -571,7 +542,6 @@ export class EventService {
       throw new BadRequestException('Recipients list cannot be empty');
     }
 
-    // ✅ Prepare email
     const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
     const emailBody = this.emailService.createEmailBody(
       Array.isArray(content_type) ? content_type.join(', ') : content_type,
@@ -579,7 +549,6 @@ export class EventService {
       attachment ?? null,
     );
 
-    // ✅ Send emails in parallel
     await Promise.all(
       content_recipients.map((recipient) =>
         this.emailService.sendEmail(recipient, emailSubject, emailBody),
