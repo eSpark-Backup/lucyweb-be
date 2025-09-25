@@ -23,9 +23,9 @@ export class AiController {
   async generateContent(
     @Body('event_name') eventName: string,
     @Body('prompt_text') promptText: string,
-    @Body('content_type') contentType: string | string[],
-  ): Promise<{ content_type: string; text: string }[]> {
-    return this.aiService.generateContent(eventName, promptText, contentType);
+    @Body('content_types') contentTypes: string | string[],
+  ): Promise<{ content_types: string; text: string }[]> {
+    return this.aiService.generateContent(eventName, promptText, contentTypes);
   }
 
   @Get('usage')

@@ -21,9 +21,9 @@ export class AiService {
     eventName: string,
     promptText: string,
     contentTypes: string | string[],
-  ): Promise<{ content_type: string; text: string }[]> {
+  ): Promise<{ content_types: string; text: string }[]> {
     const types = Array.isArray(contentTypes) ? contentTypes : [contentTypes];
-    const results: { content_type: string; text: string }[] = [];
+    const results: { content_types: string; text: string }[] = [];
 
     // Loop to generate text for each content_type
     for (const type of types) {
@@ -44,7 +44,7 @@ export class AiService {
         let text = (response.choices[0].message.content || '').trim();
         if (!/[.!?]$/.test(text)) text += '.';
 
-        results.push({ content_type: type, text });
+        results.push({ content_types: type, text });
       } catch (error) {
         console.error(`Error generating content for ${type}:`, error);
         throw new Error(`Failed to generate content for type: ${type}`);
