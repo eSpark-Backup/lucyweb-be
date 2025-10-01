@@ -16,6 +16,12 @@ interface ContentResponse extends Content {
   content_types: Content['content_type'];
 }
 
+function normalizeToArray(val: unknown): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.map(String);
+  return [String(val)];
+}
+
 @Injectable()
 export class EventService {
   constructor(
@@ -351,9 +357,9 @@ export class EventService {
     if (content_recipients?.length) {
       const emailSubject = `New Content Created for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
-        content.content_type as string[],
-        content.text_content as string[],
-        content.attachment,
+        normalizeToArray(content.content_type),
+        normalizeToArray(content.text_content),
+        content.attachment ?? null,
       );
 
       await Promise.all(
@@ -421,9 +427,9 @@ export class EventService {
     if (content_recipients?.length) {
       const emailSubject = `Content Updated for Event: ${event.name}`;
       const emailBody = this.emailService.createEmailBody(
-        updatedContent.content_type as string[],
-        updatedContent.text_content as string[],
-        updatedContent.attachment,
+        normalizeToArray(updatedContent.content_type),
+        normalizeToArray(updatedContent.text_content),
+        updatedContent.attachment ?? null,
       );
 
       await Promise.all(
@@ -477,8 +483,8 @@ export class EventService {
 
     const emailSubject = `Content from Event: ${content.event.name}`;
     const emailBody = this.emailService.createEmailBody(
-      content.content_type as string[],
-      content.text_content as string[],
+      normalizeToArray(content.content_type),
+      normalizeToArray(content.text_content),
       content.attachment ?? null,
     );
 
@@ -544,8 +550,8 @@ export class EventService {
 
     const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
     const emailBody = this.emailService.createEmailBody(
-      Array.isArray(content_type) ? content_type.join(', ') : content_type,
-      text_content,
+      normalizeToArray(content_type),
+      normalizeToArray(text_content),
       attachment ?? null,
     );
 
