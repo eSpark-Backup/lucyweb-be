@@ -277,6 +277,14 @@ export class EmailService {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
+    const typeMap: Record<string, string> = {
+      instagram_post: 'Instagram Post',
+      facebook_post: 'Facebook Post',
+      governor_summary: 'Governor Summary',
+      press_release: 'Press Release',
+      newsletter: 'Newsletter',
+    };
+
     // Ensure we always have arrays (but do NOT split on commas)
     const types = Array.isArray(contentTypes)
       ? contentTypes
@@ -290,8 +298,8 @@ export class EmailService {
       return `
       <div style="margin-bottom:24px;">
         <h3 style="color:#4A90E2; margin:0 0 8px;">
-          ${escapeHtml(type)}
-        </h3>
+  ${escapeHtml(typeMap[type] ?? type)}
+         </h3>
         <p style="white-space:pre-wrap; line-height:1.6; color:#333; margin:0;">
           ${escapeHtml(text)}
         </p>
