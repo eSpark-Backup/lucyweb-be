@@ -75,8 +75,8 @@ export class AiService {
         return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
       case 'summary':
         return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
-      case 'governor_summary':
-        return `${baseInstruction} Provide an authoritative yet approachable 2 to 3 sentence briefing for the governor about "${promptText}" regarding the event titled "${eventName}". Don't use bold styling.`;
+      case 'governor_report_summary':
+        return `${baseInstruction} Write a 2 to 3 sentence "Governor report summary" for the event titled "${eventName}". Summarize the positive outcomes and achievements of the event in the past tense, highlighting what went well. Make it human-written, avoid generic AI phrasing, and don't use bold styling.`;
       default:
         throw new Error('Invalid content type');
     }
@@ -92,7 +92,7 @@ export class AiService {
         return 250;
       case 'newsletter':
         return 350;
-      case 'governor_summary':
+      case 'governor_report_summary':
       case 'summary':
         return 150;
       default:
