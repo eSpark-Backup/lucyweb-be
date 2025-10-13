@@ -12,6 +12,7 @@ import { SchoolModule } from './modules/school/school.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EventReminderJob } from './jobs/eventReminder.job';
 import { EmailModule } from './modules/email/email.module';
+import { TermsModule } from './modules/terms/terms.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { EmailModule } from './modules/email/email.module';
     SchoolModule,
     ScheduleModule.forRoot(),
     EmailModule,
+    TermsModule,
   ],
 
   controllers: [],
