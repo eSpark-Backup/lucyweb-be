@@ -24,8 +24,7 @@ model User {
   profile                    Profile?
   questions                  Question[]         @relation("CreatedQuestions")
   role                       Role?              @relation(fields: [role_id], references: [id])
-
-  // NEW: relation to School for school-login users
+  termsAccepted              Boolean            @default(false)
   school                     School?
 }
 
