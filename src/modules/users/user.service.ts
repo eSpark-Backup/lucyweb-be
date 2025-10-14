@@ -376,11 +376,27 @@ export class UserService {
     };
   }
 
+  async acceptTerms(userId: number): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { termsAccepted: true },
+    });
+
+    return { message: 'Terms and Conditions accepted successfully.' };
+  }
+
   private sanitizeUser(user: any) {
     return {
       id: user.id,
       email: user.email,
       email_verified: user.email_verified,
+      termsAccepted: user.termsAccepted,
       created_at: user.created_at,
       updated_at: user.updated_at,
       role: user.role?.name || user.profile?.role?.name || 'school',

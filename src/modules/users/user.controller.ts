@@ -55,6 +55,12 @@ and Conditions, you must not use the Service.`,
   }
 
   @UseGuards(JwtAuthGuard)
+  @Patch('/accept-terms')
+  async acceptTerms(@Request() req): Promise<{ message: string }> {
+    return this.userService.acceptTerms(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch('/me')
   @UseInterceptors(FileInterceptor('profile_image'))
   async updateProfile(
