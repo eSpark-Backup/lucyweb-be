@@ -23,18 +23,36 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
-  async userSignIn(
-    loginDto: UserLoginDto,
-  ): Promise<{ accessToken?: string; email_verified?: boolean }> {
+  async userSignIn(loginDto: UserLoginDto): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      access_token: string;
+      email_verified: boolean;
+      user: { id: number; email: string; termsAccepted: boolean };
+    };
+  }> {
     const { email, password } = loginDto;
 
     this.logger.log(`Login attempt for email: ${email}`);
 
+    // Fetch user with all required fields and relations
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: {
-        role: true, // fetch user.role
-        profile: { include: { role: true } }, // fetch profile.role
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        email_verified: true,
+        termsAccepted: true,
+        role: { select: { name: true } },
+        profile: {
+          select: {
+            first_name: true,
+            last_name: true,
+            role: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -49,17 +67,21 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // ✅ Build a single payload so `role` is always present
+    // Build a single payload so `role` is always present
     const payload = {
       id: user.id,
       email: user.email,
-      firstName: user.profile?.first_name,
-      lastName: user.profile?.last_name,
+      firstName: user.profile?.first_name ?? null,
+      lastName: user.profile?.last_name ?? null,
       role:
         user.role?.name?.toLowerCase() ||
-        user.profile?.role?.name?.toLowerCase(),
+        user.profile?.role?.name?.toLowerCase() ||
+        'user',
     };
 
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '2h' });
+
+    // If email is not verified, send verification email
     if (!user.email_verified) {
       this.logger.warn(`Email not verified for user: ${email}`);
 
@@ -78,18 +100,39 @@ export class AuthService {
       await this.emailService.sendVerificationEmail(
         user.email,
         verificationToken,
-        user.profile?.first_name,
+        user.profile?.first_name ?? undefined,
       );
 
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '2h' });
-      this.logger.log(`Verification email re-sent to: ${email}`);
-      return { accessToken, email_verified: false };
+      return {
+        success: true,
+        message: 'Email not verified. Verification email sent.',
+        data: {
+          access_token: accessToken,
+          email_verified: false,
+          user: {
+            id: user.id,
+            email: user.email,
+            termsAccepted: user.termsAccepted,
+          },
+        },
+      };
     }
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '2h' });
+    // Email verified: return full success response
     this.logger.log(`Login successful for email: ${email}`);
-
-    return { accessToken, email_verified: true };
+    return {
+      success: true,
+      message: 'Login successful',
+      data: {
+        access_token: accessToken,
+        email_verified: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          termsAccepted: user.termsAccepted,
+        },
+      },
+    };
   }
 
   // Verify email method

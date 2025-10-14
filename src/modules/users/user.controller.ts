@@ -24,10 +24,18 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post('/register')
-  async registerUser(
-    @Body() userRegisterDto: UserRegisterDto,
-  ): Promise<{ message: string; token: string }> {
-    return this.userService.registerUser(userRegisterDto);
+  async registerUser(@Body() userRegisterDto: UserRegisterDto) {
+    const newUser = await this.userService.registerUser(userRegisterDto);
+
+    // Destructure the service response
+    const { success, message, data } = newUser;
+
+    return {
+      success,
+      message,
+      token: data.token,
+      user: data.user, // contains id, email, termsAccepted
+    };
   }
 
   @UseGuards(JwtAuthGuard)

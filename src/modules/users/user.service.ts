@@ -26,9 +26,14 @@ export class UserService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async registerUser(
-    userRegisterDto: UserRegisterDto,
-  ): Promise<{ message: string; token: string }> {
+  async registerUser(userRegisterDto: UserRegisterDto): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      token: string;
+      user: { id: number; email: string; termsAccepted: boolean };
+    };
+  }> {
     const { email, password, first_name, last_name, phone, role } =
       userRegisterDto;
 
@@ -50,10 +55,7 @@ export class UserService {
     if (role) {
       const roleRecord = await this.prisma.role.findFirst({
         where: {
-          name: {
-            equals: role.toLowerCase(),
-            mode: 'insensitive', // ✅ makes it case-insensitive
-          },
+          name: { equals: role.toLowerCase(), mode: 'insensitive' },
         },
       });
       if (!roleRecord) {
@@ -69,6 +71,7 @@ export class UserService {
         email,
         password: hashedPassword,
         email_verified: false,
+        termsAccepted: false, // ✅ initialize termsAccepted
         email_verification_token: verificationToken,
         email_verification_expires: verificationExpires,
         role: { connect: { id: roleId } },
@@ -97,15 +100,23 @@ export class UserService {
         role: newUser.profile?.role?.name.toLowerCase(),
       },
       {
-        secret: process.env.JWT_SECRET, // ✅ explicitly pass secret
+        secret: process.env.JWT_SECRET,
         expiresIn: '1d',
       },
     );
 
     return {
+      success: true,
       message:
         'Registration successful! Please check your email to verify your account.',
-      token,
+      data: {
+        token,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          termsAccepted: newUser.termsAccepted, // ✅ included in response
+        },
+      },
     };
   }
 
