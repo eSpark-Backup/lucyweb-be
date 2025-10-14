@@ -21,9 +21,8 @@ export class AuthController {
   ) {}
 
   @Post('/sign-in')
-  async login(
-    @Body() userLoginDto: UserLoginDto,
-  ): Promise<{ accessToken?: string; email_verified?: boolean }> {
+  async login(@Body() userLoginDto: UserLoginDto) {
+    // Return the full structured response from AuthService
     return this.authService.userSignIn(userLoginDto);
   }
 
