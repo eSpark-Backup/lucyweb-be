@@ -22,8 +22,25 @@ export class AuthController {
 
   @Post('/sign-in')
   async login(@Body() userLoginDto: UserLoginDto) {
-    // Return the full structured response from AuthService
-    return this.authService.userSignIn(userLoginDto);
+    const loginResponse = await this.authService.userSignIn(userLoginDto);
+
+    // Static Terms and Conditions snippet
+    const termsAndConditions = [
+      {
+        title: 'Acceptance of Terms',
+        content: `By accessing or using Edupulse, you confirm that you have read, understood,
+and agree to be bound by this Agreement. If you do not agree with these Terms
+and Conditions, you must not use the Service.`,
+      },
+    ];
+
+    return {
+      ...loginResponse,
+      data: {
+        ...loginResponse.data,
+        termsAndConditions,
+      },
+    };
   }
 
   @Get('verify-email')

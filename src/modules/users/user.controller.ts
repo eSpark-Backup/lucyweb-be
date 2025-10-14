@@ -30,11 +30,21 @@ export class UserController {
     // Destructure the service response
     const { success, message, data } = newUser;
 
+    const termsAndConditions = [
+      {
+        title: 'Acceptance of Terms',
+        content: `By accessing or using Edupulse, you confirm that you have read, understood,
+and agree to be bound by this Agreement. If you do not agree with these Terms
+and Conditions, you must not use the Service.`,
+      },
+    ];
+
     return {
       success,
       message,
       token: data.token,
-      user: data.user, // contains id, email, termsAccepted
+      user: data.user,
+      termsAndConditions,
     };
   }
 
