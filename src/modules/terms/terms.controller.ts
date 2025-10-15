@@ -1,4 +1,4 @@
-import { Controller, Get /*,  Post, Body,  UseGuards */ } from '@nestjs/common';
+import { Controller, Get, Post, Body /* UseGuards */ } from '@nestjs/common';
 import { TermsService } from './terms.service';
 // import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 // import { RolesGuard } from 'src/common/guard/roles.guard';
@@ -11,10 +11,10 @@ export class TermsController {
 
   // @UseGuards(JwtAuthGuard, RolesGuard)
   // @Roles(Role.ADMIN, Role.OWNER)
-  // @Post()
-  // async createOrUpdateTerms(@Body('content') content: string) {
-  //   return this.termsService.createOrUpdateTerms(content);
-  // }
+  @Post()
+  async createOrUpdateTerms(@Body('content') content: string) {
+    return this.termsService.createOrUpdateTerms(content);
+  }
 
   @Get()
   async getTerms() {

@@ -5,20 +5,20 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class TermsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // async createOrUpdateTerms(content: string) {
-  //   const existing = await this.prisma.terms.findFirst();
+  async createOrUpdateTerms(content: string) {
+    const existing = await this.prisma.terms.findFirst();
 
-  //   if (existing) {
-  //     const updated = await this.prisma.terms.update({
-  //       where: { id: existing.id },
-  //       data: { content },
-  //     });
-  //     return { message: 'Terms updated successfully', data: updated };
-  //   } else {
-  //     const created = await this.prisma.terms.create({ data: { content } });
-  //     return { message: 'Terms created successfully', data: created };
-  //   }
-  // }
+    if (existing) {
+      const updated = await this.prisma.terms.update({
+        where: { id: existing.id },
+        data: { content },
+      });
+      return { message: 'Terms updated successfully', data: updated };
+    } else {
+      const created = await this.prisma.terms.create({ data: { content } });
+      return { message: 'Terms created successfully', data: created };
+    }
+  }
 
   async getLatestTerms() {
     const terms = await this.prisma.terms.findFirst({
