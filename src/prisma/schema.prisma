@@ -1,204 +1,43 @@
-generator client {
-  provider = "prisma-client-js"
-}
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+@Injectable()
+export class TermsService {
+  constructor(private readonly prisma: PrismaService) {}
 
-model User {
-  id                         Int                @id @default(autoincrement())
-  email                      String             @unique
-  password                   String
-  created_at                 DateTime           @default(now())
-  updated_at                 DateTime           @updatedAt
-  email_verification_expires DateTime?
-  email_verification_token   String?            @unique
-  email_verified             Boolean            @default(false)
-  password_reset_token       String?            @unique
-  password_reset_expires     DateTime?
-  role_id                    Int?
-  contentRecipients          ContentRecipient[]
-  events                     Event[]
-  profile                    Profile?
-  questions                  Question[]         @relation("CreatedQuestions")
-  role                       Role?              @relation(fields: [role_id], references: [id])
-  termsAccepted              Boolean            @default(false)
-  school                     School?
-}
+  async createOrUpdateTerms(
+    content: string,
+    sections: { title: string; content: string }[],
+  ) {
+    const existing = await this.prisma.termsAndConditions.findFirst();
 
-model Terms {
-  id        Int      @id @default(autoincrement())
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+    if (existing) {
+      const updated = await this.prisma.termsAndConditions.update({
+        where: { id: existing.id },
+        data: {
+          content,
+          sections,
+        },
+      });
+      return { message: 'Terms and Conditions updated successfully', data: updated };
+    } else {
+      const created = await this.prisma.termsAndConditions.create({
+        data: {
+          content,
+          sections,
+        },
+      });
+      return { message: 'Terms and Conditions created successfully', data: created };
+    }
+  }
 
-model School {
-  id              Int           @id @default(autoincrement())
-  name            String
-  address         String
-  phone           String
-  description     String?
-  email           String        @unique
-  password        String?       
-  image           String?
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @updatedAt
+  async getLatestTerms() {
+    const terms = await this.prisma.termsAndConditions.findFirst({
+      orderBy: { createdAt: 'desc' },
+    });
 
-  organization_id Int
-  organization    Organization  @relation(fields: [organization_id], references: [id])
+    if (!terms) throw new NotFoundException('No Terms and Conditions found');
 
-  user_id         Int?          @unique          // link to login User
-  user            User?         @relation(fields: [user_id], references: [id])
-
-  is_paid         Boolean       @default(false)
-
-  // NEW: each school can have its own events
-  events          Event[]
-}
-
-model Event {
-  id          Int       @id @default(autoincrement())
-  name        String
-  type        String?
-  date_time   DateTime
-  description String?
-  user_id     Int
-  school_id   Int?                     // NEW: event belongs to a specific school
-  image       String?
-  contents    Content[]
-  user        User      @relation(fields: [user_id], references: [id])
-  school      School?   @relation(fields: [school_id], references: [id], onDelete: Cascade)
-}
-
-
-model Profile {
-  id              Int           @id @default(autoincrement())
-  user_id         Int           @unique
-  first_name      String
-  last_name       String
-  phone           String?
-  organization_id Int?
-  profile_image   String?
-  role_id         Int           @default(4)
-  organization    Organization? @relation(fields: [organization_id], references: [id])
-  role            Role          @relation(fields: [role_id], references: [id])
-  user            User          @relation(fields: [user_id], references: [id])
-}
-
-
-
-model Organization {
-  id                    Int             @id @default(autoincrement())
-  name                  String
-  address               String
-  is_trust              Boolean         @default(false)
-  selected_school_count Int?
-  paid_school_count     Int             @default(0)
-  subscription_status   String?         // active, cancelled, past_due, etc.
-  stripe_subscription_id String?        @unique // Stripe subscription id (e.g. sub_xxx)
-  last_purchase         DateTime?
-  profiles              Profile[]
-  payments              Payment[]
-  schools               School[]
-  trust_locked          Boolean         @default(false)
-}
-
-model Payment {
-  id                     Int          @id @default(autoincrement())
-  organization_id        Int
-  amount                 Float        // total amount in GBP
-  currency               String       @default("GBP")
-  status                 String       @default("pending") // pending | success | failed
-  description            String?
-  stripe_session_id      String?      @unique
-  stripe_subscription_id String?      // Stripe subscription for recurring billing
-  stripe_invoice_id      String?      @unique
-  schools_count          Int?         // number of schools covered in this payment
-  unit_price             Float?       // per-school price in GBP (e.g. 50.0 or 10.0)
-  created_at             DateTime     @default(now())
-
-  // Relations
-  organization           Organization @relation(fields: [organization_id], references: [id])
-
-  @@index([organization_id, status])
-  @@index([stripe_session_id])
-  @@index([stripe_invoice_id])
-}
-
-
-
-
-model Role {
-  id       Int       @id @default(autoincrement())
-  name     String    @unique
-  profiles Profile[]
-  users    User[]
-}
-
-
-
-model Content {
-  id                 Int                @id @default(autoincrement())
-  event_id           Int
-  content_type       Json
-  text_content       Json
-  attachment         String?
-  event              Event              @relation(fields: [event_id], references: [id], onDelete: Cascade)
-  content_recipients ContentRecipient[]
-  created_at         DateTime           @default(now())
-  updated_at         DateTime           @default(now()) @updatedAt
-}
-
-model PostMethod {
-  id                 Int                @id @default(autoincrement())
-  name               String             @unique
-  post_address       String
-  status             String             @default("none")
-  content_recipients ContentRecipient[]
-}
-
-model ContentRecipient {
-  id          Int        @id @default(autoincrement())
-  content_id  Int?
-  recipient   String
-  method_id   Int
-  created_at  DateTime   @default(now())
-  user_id     Int
-  content     Content?   @relation(fields: [content_id], references: [id])
-  post_method PostMethod @relation(fields: [method_id], references: [id])
-  user        User       @relation(fields: [user_id], references: [id])
-}
-
-model Question {
-  id            Int      @id @default(autoincrement())
-  text          String
-  question_type String
-  options       Json?
-  is_archived   Boolean  @default(false)
-  created_at    DateTime @default(now())
-  created_by    Int
-  updated_at    DateTime @updatedAt
-  answers       Answer[]
-  creator       User     @relation("CreatedQuestions", fields: [created_by], references: [id])
-}
-
-model Response {
-  id           Int      @id @default(autoincrement())
-  email        String
-  submitted_at DateTime @default(now())
-  answers      Answer[]
-}
-
-model Answer {
-  id          Int      @id @default(autoincrement())
-  question_id Int
-  response_id Int
-  answer_text String
-  question    Question @relation(fields: [question_id], references: [id])
-  response    Response @relation(fields: [response_id], references: [id])
-
-  @@unique([response_id, question_id])
+    return { message: 'Terms and Conditions fetched successfully', data: terms };
+  }
 }
