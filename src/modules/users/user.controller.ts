@@ -51,7 +51,21 @@ and Conditions, you must not use the Service.`,
   @UseGuards(JwtAuthGuard)
   @Get('/me')
   async getProfile(@Request() req): Promise<any> {
-    return this.userService.getUserProfile(req.user.email);
+    const userProfile = await this.userService.getUserProfile(req.user.email);
+
+    const termsAndConditions = [
+      {
+        title: 'Acceptance of Terms',
+        content: `By accessing or using Edupulse, you confirm that you have read, understood,
+and agree to be bound by this Agreement. If you do not agree with these Terms
+and Conditions, you must not use the Service.`,
+      },
+    ];
+
+    return {
+      ...userProfile,
+      termsAndConditions,
+    };
   }
 
   @UseGuards(JwtAuthGuard)
