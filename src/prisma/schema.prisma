@@ -28,9 +28,10 @@ model User {
   school                     School?
 }
 
-model Terms {
+model TermsAndConditions {
   id        Int      @id @default(autoincrement())
   content   String
+  sections  Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
