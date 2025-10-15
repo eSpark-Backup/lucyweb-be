@@ -217,7 +217,7 @@ export class EmailService {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.FRONTEND_URL}/login" 
+            <a href="${process.env.FRONTEND_URL}/auth/login" 
                style="background-color: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
               Start Using Your Account
             </a>
