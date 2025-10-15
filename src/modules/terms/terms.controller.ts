@@ -18,6 +18,22 @@ export class TermsController {
 
   @Get()
   async getTerms() {
-    return this.termsService.getLatestTerms();
+    const latestTerms = await this.termsService.getLatestTerms();
+
+    const termsAndConditions = [
+      {
+        title: 'Acceptance of Terms',
+        content: `By accessing or using Edupulse, you confirm that you have read, understood,
+and agree to be bound by this Agreement. If you do not agree with these Terms
+and Conditions, you must not use the Service.`,
+      },
+    ];
+
+    return {
+      success: true,
+      message: 'Latest Terms and Conditions fetched successfully.',
+      data: latestTerms.data,
+      termsAndConditions,
+    };
   }
 }
