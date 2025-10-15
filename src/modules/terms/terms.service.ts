@@ -5,28 +5,51 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class TermsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOrUpdateTerms(content: string) {
-    const existing = await this.prisma.terms.findFirst();
+  async createOrUpdateTerms(
+    content: string,
+    sections: { title: string; content: string }[],
+  ) {
+    const existing = await this.prisma.termsAndConditions.findFirst();
 
     if (existing) {
-      const updated = await this.prisma.terms.update({
+      const updated = await this.prisma.termsAndConditions.update({
         where: { id: existing.id },
-        data: { content },
+        data: {
+          content,
+          sections,
+        },
       });
-      return { message: 'Terms updated successfully', data: updated };
+      return {
+        success: true,
+        message: 'Terms and Conditions updated successfully.',
+        data: updated,
+      };
     } else {
-      const created = await this.prisma.terms.create({ data: { content } });
-      return { message: 'Terms created successfully', data: created };
+      const created = await this.prisma.termsAndConditions.create({
+        data: {
+          content,
+          sections,
+        },
+      });
+      return {
+        success: true,
+        message: 'Terms and Conditions created successfully.',
+        data: created,
+      };
     }
   }
 
   async getLatestTerms() {
-    const terms = await this.prisma.terms.findFirst({
+    const latest = await this.prisma.termsAndConditions.findFirst({
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!terms) throw new NotFoundException('No terms found');
+    if (!latest) throw new NotFoundException('No Terms and Conditions found.');
 
-    return { message: 'Terms fetched successfully', data: terms };
+    return {
+      success: true,
+      message: 'Terms and Conditions fetched successfully.',
+      data: latest,
+    };
   }
 }
