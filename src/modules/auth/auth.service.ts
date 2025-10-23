@@ -309,7 +309,7 @@ export class AuthService {
       <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
         <p style="font-size: 14px; color: #999;">
           Best regards,<br>
-          The ${process.env.APP_NAME || 'EduPulse'} Team
+          The ${process.env.APP_NAME || 'edupulsegpt'} Team
         </p>
       </div>
     </div>

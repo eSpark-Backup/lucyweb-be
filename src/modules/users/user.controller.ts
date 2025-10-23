@@ -33,7 +33,7 @@ export class UserController {
     const termsAndConditions = [
       {
         title: 'Acceptance of Terms',
-        content: `By accessing or using Edupulse, you confirm that you have read, understood,
+        content: `By accessing or using edupulsegpt, you confirm that you have read, understood,
 and agree to be bound by this Agreement. If you do not agree with these Terms
 and Conditions, you must not use the Service.`,
       },
@@ -56,7 +56,7 @@ and Conditions, you must not use the Service.`,
     const termsAndConditions = [
       {
         title: 'Acceptance of Terms',
-        content: `By accessing or using Edupulse, you confirm that you have read, understood,
+        content: `By accessing or using edupulsegpt, you confirm that you have read, understood,
 and agree to be bound by this Agreement. If you do not agree with these Terms
 and Conditions, you must not use the Service.`,
       },
