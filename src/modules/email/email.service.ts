@@ -1,20 +1,32 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import * as AWS from 'aws-sdk';
+// import * as AWS from 'aws-sdk';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
+  // constructor() {
+  //   this.transporter = nodemailer.createTransport({
+  //     SES: new AWS.SES({
+  //       apiVersion: '2010-12-01',
+  //       region: process.env.AWS_REGION,
+  //       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  //       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  //     }),
+  //   });
+  // }
+
   constructor() {
     this.transporter = nodemailer.createTransport({
-      SES: new AWS.SES({
-        apiVersion: '2010-12-01',
-        region: process.env.AWS_REGION,
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      }),
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      secure: true,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
     });
   }
 
@@ -261,6 +273,21 @@ export class EmailService {
     } catch (error) {
       console.error('Error sending email:', error);
       throw new InternalServerErrorException('Could not send email.'); // Handle error appropriately
+    }
+  }
+
+  async sendTestEmail(): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: 'owais.shaikh2378@gmail.com',
+        subject: '✅ Test Email from EdupulseGPT',
+        html: `<h2>Hello!</h2><p>This is a test email sent using <strong>Google SMTP</strong> from EdupulseGPT backend.</p>`,
+      });
+      console.log('Test email sent successfully!');
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      throw new InternalServerErrorException('Failed to send test email');
     }
   }
 
