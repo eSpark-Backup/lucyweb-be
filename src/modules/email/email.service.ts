@@ -276,21 +276,6 @@ export class EmailService {
     }
   }
 
-  async sendTestEmail(): Promise<void> {
-    try {
-      await this.transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to: 'owais.shaikh2378@gmail.com',
-        subject: '✅ Test Email from EdupulseGPT',
-        html: `<h2>Hello!</h2><p>This is a test email sent using <strong>Google SMTP</strong> from EdupulseGPT backend.</p>`,
-      });
-      console.log('Test email sent successfully!');
-    } catch (error) {
-      console.error('Error sending test email:', error);
-      throw new InternalServerErrorException('Failed to send test email');
-    }
-  }
-
   createEmailBody(
     contentTypes: string[] | string,
     textContents: string[] | string,
