@@ -61,12 +61,12 @@ export class AiService {
     contentType: string,
   ): string {
     const baseInstruction =
-      'Write in natural, conversational British English that sounds human-written. Avoid generic AI phrasing and add small, realistic details where appropriate.';
+      'Write in natural, conversational British English that sounds human-written. Avoid generic AI phrasing and add small, realistic details where appropriate. Do NOT invent any names, teachers, staff members, quotes, or individuals unless they are explicitly provided in the event details.';
     console.log('Content type received:', contentType);
 
     switch (contentType) {
       case 'press_release':
-        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
+        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Do NOT create or fabricate teacher quotes, staff quotes, or any person’s name unless it is included in the description. Don't use bold styling.`;
       case 'instagram_post':
         return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags. Don't use bold styling.`;
       case 'facebook_post':
