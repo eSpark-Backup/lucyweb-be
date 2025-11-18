@@ -66,7 +66,7 @@ export class AiService {
 
     switch (contentType) {
       case 'press_release':
-        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Do NOT create or fabricate teacher quotes, staff quotes, or any person’s name unless it is included in the description. Don't use bold styling.`;
+        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Do NOT create or fabricate teacher quotes, staff quotes, or any person’s name unless it is included in the description. Don't use bold styling. Use simple and friendly language, no complex words.`;
       case 'instagram_post':
         return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags. Don't use bold styling.`;
       case 'facebook_post':
