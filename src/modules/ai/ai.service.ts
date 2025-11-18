@@ -61,7 +61,7 @@ export class AiService {
     contentType: string,
   ): string {
     const baseInstruction =
-      'Write in natural, conversational British English that sounds human-written. Avoid generic AI phrasing and add small, realistic details where appropriate. Do NOT invent any names, teachers, staff members, quotes, or individuals unless they are explicitly provided in the event details.';
+      'Write in simple, clear, friendly British English, in a natural human tone. Use everyday words, avoid fancy, complex, or uncommon vocabulary. Avoid generic AI phrasing and add realistic details where appropriate. Do NOT invent names, staff, quotes, or individuals unless explicitly provided.';
     console.log('Content type received:', contentType);
 
     switch (contentType) {
