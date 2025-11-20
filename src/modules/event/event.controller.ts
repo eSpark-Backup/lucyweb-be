@@ -52,7 +52,11 @@ export class EventController {
   @Get('me')
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getMyEvents(@Req() req) {
-    return this.eventsService.getAllEventsByUserId(req.user.id);
+    const events = await this.eventsService.getAllEventsByUserId(req.user.id);
+    if (!events.length) {
+      return { message: 'No events found' };
+    }
+    return events;
   }
 
   @Get(':id')
