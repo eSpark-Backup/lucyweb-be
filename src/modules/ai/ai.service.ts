@@ -33,8 +33,15 @@ export class AiService {
       try {
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o-mini',
-          temperature: 0.8,
-          messages: [{ role: 'user', content: prompt }],
+          temperature: 0,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a professional content writer. ONLY use the information provided in the user prompt. Do NOT add or invent any dates, times, locations, names, emotional content, or extra details.',
+            },
+            { role: 'user', content: prompt },
+          ],
           max_tokens: maxTokens,
         });
 
@@ -55,28 +62,36 @@ export class AiService {
   }
 
   /** Build the prompt text for OpenAI based on content type */
+
   private constructPrompt(
     eventName: string,
     promptText: string,
     contentType: string,
   ): string {
     const baseInstruction =
-      'Write in simple, clear, friendly British English, in a natural human tone. Use everyday words, avoid fancy, complex, or uncommon vocabulary. Avoid generic AI phrasing and add realistic details where appropriate. Do NOT invent names, staff, quotes, or individuals unless explicitly provided.';
+      'Write in simple, clear, factual British English, in a neutral human tone. Use everyday words, avoid fancy, complex, or uncommon vocabulary. Do NOT invent names, staff, quotes, dates, times, locations, emotional content, or any details not explicitly provided in the prompt.';
+
     console.log('Content type received:', contentType);
 
     switch (contentType) {
       case 'press_release':
-        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Do NOT create or fabricate teacher quotes, staff quotes, or any person’s name unless it is included in the description. Don't use bold styling. Use simple and friendly language, no complex words.`;
+        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Do NOT create or fabricate teacher quotes, staff quotes, or any person’s name unless it is included in the description. Do NOT invent times, dates, locations, emotional content, or additional details. Don't use bold styling. Use simple and factual language, no complex words.`;
+
       case 'instagram_post':
-        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Use a friendly tone, relevant emojis, and popular hashtags. Don't use bold styling.`;
+        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Include only the details explicitly provided. Do NOT invent content, emojis, hashtags, or any extra commentary. Don't use bold styling.`;
+
       case 'facebook_post':
-        return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Use a community-oriented tone and include a call to action. Don't use bold styling.`;
+        return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Include only the information explicitly provided. Do NOT invent content, calls to action, or extra commentary. Don't use bold styling.`;
+
       case 'newsletter':
-        return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
+        return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}". Include only the details explicitly provided. Do NOT invent content or additional information. Don't use bold styling.`;
+
       case 'summary':
-        return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}". Don't use bold styling.`;
+        return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}". Include only the information explicitly provided. Do NOT invent content or additional details. Don't use bold styling.`;
+
       case 'governor_summary':
-        return `${baseInstruction} Write a 2 to 3 sentence "Governor report summary" for the event titled "${eventName}". Summarize the positive outcomes and achievements of the event in the past tense, highlighting what went well. Make it human-written, avoid generic AI phrasing, and don't use bold styling.`;
+        return `${baseInstruction} Write a 2 to 3 sentence "Governor report summary" for the event titled "${eventName}". Summarize only the positive outcomes and achievements explicitly provided in the prompt. Do NOT invent content, details, or additional achievements. Make it factual and human-written. Don't use bold styling.`;
+
       default:
         throw new Error('Invalid content type');
     }
