@@ -14,7 +14,6 @@ import Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { PaymentService } from './payment.service';
-import { EmailService } from '../email/email.service';
 
 @Controller('payment')
 export class PaymentWebhookController {
