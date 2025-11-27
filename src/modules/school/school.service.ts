@@ -122,6 +122,21 @@ export class SchoolService {
         }
       }
 
+      // ✅ For trust organizations, ensure school email is different from organization's email
+      if (organization.is_trust) {
+        const orgUser = await this.prisma.user.findFirst({
+          where: { profile: { organization_id: data.organization_id } },
+          select: { email: true },
+        });
+
+        if (data.email === orgUser?.email) {
+          throw new HttpException(
+            'School email must be different from the organization email',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
       let userId: number | null = null;
       if (organization.is_trust && data.password) {
         const hashed = await bcrypt.hash(data.password, 10);
