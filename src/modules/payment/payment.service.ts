@@ -145,6 +145,83 @@ export class PaymentService {
     }
 
     // ────────── SINGLE-SCHOOL PLAN ──────────
+    // if (plan === 'single') {
+    //   if (org.is_trust) {
+    //     throw new HttpException(
+    //       'Trust organizations must use the trust plan',
+    //       HttpStatus.BAD_REQUEST,
+    //     );
+    //   }
+
+    //   // Only 1 school allowed, always £50
+    //   // const unitPricePence = 5000;
+    //   // const session = await this.stripe.checkout.sessions.create({
+    //   //   mode: 'subscription',
+    //   //   payment_method_types: ['card'],
+    //   //   line_items: [
+    //   //     {
+    //   //       price_data: {
+    //   //         currency: 'gbp',
+    //   //         product_data: { name: 'Single School Plan' },
+    //   //         unit_amount: unitPricePence,
+    //   //         recurring: { interval: 'month' },
+    //   //       },
+    //   //       quantity: 1,
+    //   //     },
+    //   //   ],
+    //   //   success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+    //   //   cancel_url: `${this.baseUrl}/cancel`,
+    //   //   metadata: { organizationId: org.id.toString(), plan },
+    //   // });
+
+    //   // Only for special school with 6-month subscription
+    //   const school = await this.prisma.school.findFirst({
+    //     where: { organization_id: org.id, is_special: true },
+    //   });
+
+    //   if (school && school.id === 1) {
+    //     // special school only
+    //     const unitPricePence = 5000;
+    //     await this.stripe.checkout.sessions.create({
+    //       mode: 'subscription',
+    //       payment_method_types: ['card'],
+    //       line_items: [
+    //         {
+    //           price_data: {
+    //             currency: 'gbp',
+    //             product_data: { name: 'Single School Plan - 6 Months' },
+    //             unit_amount: unitPricePence,
+    //             recurring: { interval: 'month', interval_count: 6 }, // 6-month subscription
+    //           },
+    //           quantity: 1,
+    //         },
+    //       ],
+    //       success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+    //       cancel_url: `${this.baseUrl}/cancel`,
+    //       metadata: {
+    //         organizationId: org.id.toString(),
+    //         plan,
+    //         schoolId: school.id,
+    //       },
+    //     });
+    //   }
+
+    //   await this.prisma.payment.create({
+    //     data: {
+    //       organization_id: org.id,
+    //       amount: unitPricePence / 100,
+    //       currency: 'GBP',
+    //       status: 'pending',
+    //       description: 'Single school subscription',
+    //       stripe_session_id: session.id,
+    //       schools_count: 1,
+    //       unit_price: unitPricePence / 100,
+    //     },
+    //   });
+
+    //   return { id: session.id, url: session.url };
+    // }
+    // ────────── SINGLE-SCHOOL PLAN ──────────
     if (plan === 'single') {
       if (org.is_trust) {
         throw new HttpException(
@@ -153,41 +230,91 @@ export class PaymentService {
         );
       }
 
-      // Only 1 school allowed, always £50
-      const unitPricePence = 5000;
-      const session = await this.stripe.checkout.sessions.create({
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price_data: {
-              currency: 'gbp',
-              product_data: { name: 'Single School Plan' },
-              unit_amount: unitPricePence,
-              recurring: { interval: 'month' },
+      // Only for special school with 6-month subscription
+      const school = await this.prisma.school.findFirst({
+        where: { organization_id: org.id, is_special: true },
+      });
+
+      if (school && school.id === 1) {
+        // special school only
+        const unitPricePence = 5000;
+        const session = await this.stripe.checkout.sessions.create({
+          mode: 'subscription',
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: 'gbp',
+                product_data: { name: 'Single School Plan - 6 Months' },
+                unit_amount: unitPricePence,
+                recurring: { interval: 'month', interval_count: 6 }, // 6-month subscription
+              },
+              quantity: 1,
             },
-            quantity: 1,
+          ],
+          success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.baseUrl}/cancel`,
+          metadata: {
+            organizationId: org.id.toString(),
+            plan,
+            schoolId: school.id,
           },
-        ],
-        success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${this.baseUrl}/cancel`,
-        metadata: { organizationId: org.id.toString(), plan },
-      });
+        });
 
-      await this.prisma.payment.create({
-        data: {
-          organization_id: org.id,
-          amount: unitPricePence / 100,
-          currency: 'GBP',
-          status: 'pending',
-          description: 'Single school subscription',
-          stripe_session_id: session.id,
-          schools_count: 1,
-          unit_price: unitPricePence / 100,
-        },
-      });
+        await this.prisma.payment.create({
+          data: {
+            organization_id: org.id,
+            amount: unitPricePence / 100,
+            currency: 'GBP',
+            status: 'pending',
+            description: 'Single school subscription',
+            stripe_session_id: session.id,
+            schools_count: 1,
+            unit_price: unitPricePence / 100,
+          },
+        });
 
-      return { id: session.id, url: session.url };
+        return { id: session.id, url: session.url };
+      } else {
+        // normal single school logic (monthly subscription)
+        const unitPricePence = 5000; // £50 per month
+        const session = await this.stripe.checkout.sessions.create({
+          mode: 'subscription',
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: 'gbp',
+                product_data: { name: 'Single School Plan' },
+                unit_amount: unitPricePence,
+                recurring: { interval: 'month' }, // normal monthly
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${this.baseUrl}/cancel`,
+          metadata: {
+            organizationId: org.id.toString(),
+            plan,
+          },
+        });
+
+        await this.prisma.payment.create({
+          data: {
+            organization_id: org.id,
+            amount: unitPricePence / 100,
+            currency: 'GBP',
+            status: 'pending',
+            description: 'Single school subscription',
+            stripe_session_id: session.id,
+            schools_count: 1,
+            unit_price: unitPricePence / 100,
+          },
+        });
+
+        return { id: session.id, url: session.url };
+      }
     }
 
     throw new HttpException('Invalid plan type', HttpStatus.BAD_REQUEST);
@@ -304,19 +431,36 @@ export class PaymentService {
     }
 
     // ────────── Mark newly paid schools as paid ──────────
-    if (paymentRow.schools_count > 0) {
-      const unpaid = await this.prisma.school.findMany({
-        where: { organization_id: organizationId, is_paid: false },
-        take: paymentRow.schools_count,
-        select: { id: true },
-      });
+    // if (paymentRow.schools_count > 0) {
+    //   const unpaid = await this.prisma.school.findMany({
+    //     where: { organization_id: organizationId, is_paid: false },
+    //     take: paymentRow.schools_count,
+    //     select: { id: true },
+    //   });
 
-      if (unpaid.length) {
-        await this.prisma.school.updateMany({
-          where: { id: { in: unpaid.map((s) => s.id) } },
-          data: { is_paid: true },
-        });
-      }
+    //   if (unpaid.length) {
+    //     await this.prisma.school.updateMany({
+    //       where: { id: { in: unpaid.map((s) => s.id) } },
+    //       data: { is_paid: true },
+    //     });
+    //   }
+    // }
+    // Only mark the special school as paid and set 6-month subscription_end
+    const specialSchool = await this.prisma.school.findFirst({
+      where: { organization_id: organizationId, is_special: true },
+    });
+
+    if (specialSchool && specialSchool.id === 1) {
+      const sixMonthsLater = new Date();
+      sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+      await this.prisma.school.update({
+        where: { id: specialSchool.id },
+        data: {
+          is_paid: true,
+          subscription_end: sixMonthsLater,
+        },
+      });
     }
 
     // ────────── Update subscription info & send receipt ──────────
