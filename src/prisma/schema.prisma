@@ -55,8 +55,9 @@ model School {
   user            User?         @relation(fields: [user_id], references: [id])
 
   is_paid         Boolean       @default(false)
-
-  // NEW: each school can have its own events
+  subscription_end DateTime?   
+  is_special       Boolean     @default(false)
+  
   events          Event[]
 }
 
