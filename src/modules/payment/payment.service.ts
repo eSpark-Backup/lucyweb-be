@@ -463,6 +463,18 @@ export class PaymentService {
       });
     }
 
+    // Mark normal single school as paid (non-special)
+    const normalSchool = await this.prisma.school.findFirst({
+      where: { organization_id: organizationId, is_special: false },
+    });
+
+    if (normalSchool) {
+      await this.prisma.school.update({
+        where: { id: normalSchool.id },
+        data: { is_paid: true },
+      });
+    }
+
     // ────────── Update subscription info & send receipt ──────────
     const org = await this.prisma.organization.update({
       where: { id: organizationId },
