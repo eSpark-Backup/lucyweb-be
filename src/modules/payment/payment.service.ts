@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
@@ -469,9 +470,12 @@ export class PaymentService {
     });
 
     if (normalSchool) {
+      const oneMonthLater = new Date();
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+
       await this.prisma.school.update({
         where: { id: normalSchool.id },
-        data: { is_paid: true },
+        data: { is_paid: true, subscription_end: oneMonthLater },
       });
     }
 

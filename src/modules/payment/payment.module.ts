@@ -6,11 +6,12 @@ import { PaymentController } from './payment.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { PaymentWebhookController } from './payment.webhook';
 import { JwtService } from '@nestjs/jwt';
+import { SubscriptionService } from './subscription.service';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule],
   controllers: [PaymentController, PaymentWebhookController],
-  providers: [PaymentService, EmailService, JwtService],
-  exports: [PaymentService],
+  providers: [PaymentService, EmailService, JwtService, SubscriptionService],
+  exports: [PaymentService, SubscriptionService],
 })
 export class PaymentModule {}
