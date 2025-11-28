@@ -48,6 +48,7 @@ export class SchoolController {
       description: school.description,
       image: school.image,
       is_paid: school.is_paid,
+      is_special: school.is_special,
       created_at: school.created_at,
       updated_at: school.updated_at,
       cost: school.cost ?? null,
