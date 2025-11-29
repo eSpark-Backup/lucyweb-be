@@ -120,6 +120,19 @@ export class SchoolService {
             HttpStatus.BAD_REQUEST,
           );
         }
+
+        // ✅ New restriction: allow only school email same as user email
+        const orgUser = await this.prisma.user.findFirst({
+          where: { profile: { organization_id: data.organization_id } },
+          select: { email: true },
+        });
+
+        if (data.email !== orgUser?.email) {
+          throw new HttpException(
+            'For non-trust organizations, school email must match the user email',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
       }
 
       // ✅ For trust organizations, ensure school email is different from organization's email
