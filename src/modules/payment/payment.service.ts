@@ -233,7 +233,11 @@ export class PaymentService {
 
       // Only for special school with 6-month subscription
       const school = await this.prisma.school.findFirst({
-        where: { organization_id: org.id, is_special: true },
+        where: {
+          organization_id: org.id,
+          is_special: true,
+          email: { not: 'lifetime_school_email@example.com' }, // skip lifetime
+        },
       });
 
       if (school && school.id === 1) {
@@ -447,11 +451,16 @@ export class PaymentService {
     //   }
     // }
     // Only mark the special school as paid and set 6-month subscription_end
+    // Skip lifetime school completely
     const specialSchool = await this.prisma.school.findFirst({
-      where: { organization_id: organizationId, is_special: true },
+      where: {
+        organization_id: organizationId,
+        is_special: true,
+        email: { not: 'lifetime_school_email@example.com' }, // exclude lifetime
+      },
     });
 
-    if (specialSchool && specialSchool.id === 1) {
+    if (specialSchool) {
       const sixMonthsLater = new Date();
       sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
 
@@ -464,10 +473,23 @@ export class PaymentService {
       });
     }
 
-    // Mark normal single school as paid (non-special)
     const normalSchool = await this.prisma.school.findFirst({
-      where: { organization_id: organizationId, is_special: false },
+      where: {
+        organization_id: organizationId,
+        is_special: false,
+        email: { not: 'lifetime_school_email@example.com' }, // exclude lifetime
+      },
     });
+
+    if (normalSchool) {
+      const oneMonthLater = new Date();
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+
+      await this.prisma.school.update({
+        where: { id: normalSchool.id },
+        data: { is_paid: true, subscription_end: oneMonthLater },
+      });
+    }
 
     if (normalSchool) {
       const oneMonthLater = new Date();
