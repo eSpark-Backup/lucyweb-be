@@ -13,6 +13,7 @@ export class SubscriptionService {
 
   // This cron job will run every day at midnight (or set your preferred schedule)
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // @Cron('*/5 * * * * *')
   async handleExpiredSubscriptions() {
     const now = new Date();
 
@@ -35,7 +36,7 @@ export class SubscriptionService {
         subscription_end: { lt: now },
       },
     });
-    
+
     // ----------------- Send expiry reminders -----------------
     await this.sendSubscriptionExpiryReminder(regularSchoolsToUpdate);
     await this.sendSubscriptionExpiryReminder(sixMonthSchoolsToUpdate);
