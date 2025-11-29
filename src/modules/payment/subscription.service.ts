@@ -16,52 +16,50 @@ export class SubscriptionService {
   async handleExpiredSubscriptions() {
     const now = new Date();
 
-    // Handle regular schools (monthly expiration)
-    const schoolsToUpdate = await this.prisma.school.findMany({
+    // ----------------- Regular schools (monthly expiration) -----------------
+    const regularSchoolsToUpdate = await this.prisma.school.findMany({
       where: {
         is_special: false,
         is_paid: true,
-        subscription_end: {
-          lt: now, // Subscription has ended
-        },
+        subscription_end: { lt: now },
       },
     });
 
-    // Handle special schools (6-month expiration)
-    // Handle special schools (6-month expiration) via email check
-    const specialSchoolsToUpdate = await this.prisma.school.findMany({
+    // ----------------- 6-Month subscription school -----------------
+    const sixMonthSchoolEmail = 'six_month_school@gmail.com';
+    const sixMonthSchoolsToUpdate = await this.prisma.school.findMany({
       where: {
         is_special: true,
         is_paid: true,
-        subscription_end: {
-          lt: now, // Subscription has ended
-        },
-        // Only 6-month school, not lifetime
-        email: {
-          not: 'lifetime_school@gmail.com',
-        },
+        email: sixMonthSchoolEmail,
+        subscription_end: { lt: now },
       },
     });
+    
+    // ----------------- Send expiry reminders -----------------
+    await this.sendSubscriptionExpiryReminder(regularSchoolsToUpdate);
+    await this.sendSubscriptionExpiryReminder(sixMonthSchoolsToUpdate);
 
-    // Send reminder emails for schools about to expire (e.g., 7 days before expiration)
-    await this.sendSubscriptionExpiryReminder(schoolsToUpdate);
-    await this.sendSubscriptionExpiryReminder(specialSchoolsToUpdate);
+    // ----------------- Update subscription status -----------------
+    // Regular schools
+    await this.prisma.school.updateMany({
+      where: {
+        is_special: false,
+        is_paid: true,
+        subscription_end: { lt: now },
+      },
+      data: { is_paid: false },
+    });
 
-    // Update subscription status for expired schools
+    // 6-month school
     await this.prisma.school.updateMany({
       where: {
         is_special: true,
         is_paid: true,
-        subscription_end: {
-          lt: now,
-        },
-        email: {
-          not: 'lifetime_school_email@example.com', // Exclude lifetime school
-        },
+        email: sixMonthSchoolEmail,
+        subscription_end: { lt: now },
       },
-      data: {
-        is_paid: false,
-      },
+      data: { is_paid: false },
     });
 
     console.log('Expired subscriptions handled successfully.');
@@ -69,13 +67,12 @@ export class SubscriptionService {
 
   // Send subscription expiry reminder emails
   private async sendSubscriptionExpiryReminder(schools: any[]) {
-    for (const school of schools) {
-      if (school.email === 'lifetime_school@gmail.com') {
-        continue; // skip sending reminders to lifetime school
-      }
-      const { subscription_end, name, email } = school;
+    const lifetimeSchoolEmail = 'lifetime_school@gmail.com';
 
-      // If the subscription is about to expire in the next 7 days
+    for (const school of schools) {
+      if (school.email === lifetimeSchoolEmail) continue; // skip lifetime school
+
+      const { subscription_end, name, email } = school;
       const expiryDate = new Date(subscription_end);
       const daysToExpiry = Math.floor(
         (expiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24),
@@ -83,9 +80,9 @@ export class SubscriptionService {
 
       if (daysToExpiry <= 7) {
         await this.emailService.sendSubscriptionExpiryReminder(email, {
-          firstName: name, // or other relevant fields
+          firstName: name,
           orgName: name,
-          plan: 'single', // Add the actual plan name if available
+          plan: 'single', // or dynamically assign if needed
           expiryDate: expiryDate.toLocaleDateString(),
         });
       }
