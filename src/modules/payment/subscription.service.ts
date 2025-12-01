@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 import { Injectable } from '@nestjs/common';
-import { Cron/*, CronExpression*/ } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from 'src/modules/email/email.service';
 
@@ -12,8 +12,8 @@ export class SubscriptionService {
   ) {}
 
   // This cron job will run every day at midnight (or set your preferred schedule)
-  // @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  @Cron('*/10 * * * * *')
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // @Cron('*/10 * * * * *')
   async handleExpiredSubscriptions() {
     const now = new Date();
     const sevenDaysLater = new Date();
@@ -28,7 +28,7 @@ export class SubscriptionService {
     });
 
     // ----------------- 6-Month subscription school -----------------
-    const sixMonthSchoolEmail = 'gareya2715@idwager.com';
+    const sixMonthSchoolEmail = 'a.gillings@blundeston.suffolk.sch.uk';
     const sixMonthSchoolsToUpdate = await this.prisma.school.findMany({
       where: {
         is_special: true,
@@ -69,7 +69,7 @@ export class SubscriptionService {
 
   // Send subscription expiry reminder emails
   private async sendSubscriptionExpiryReminder(schools: any[]) {
-    const lifetimeSchoolEmail = 'lifetime_school@gmail.com';
+    const lifetimeSchoolEmail = 'lucy.hood@exposure-pr.co.uk';
 
     for (const school of schools) {
       if (school.email === lifetimeSchoolEmail) continue; // skip lifetime school
