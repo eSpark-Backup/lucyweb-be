@@ -236,7 +236,7 @@ export class PaymentService {
         where: {
           organization_id: org.id,
           is_special: true,
-          email: { not: 'lifetime_school_email@example.com' }, // skip lifetime
+          email: { not: 'lucy.hood@exposure-pr.co.uk' }, // skip lifetime
         },
       });
 
@@ -456,7 +456,7 @@ export class PaymentService {
       where: {
         organization_id: organizationId,
         is_special: true,
-        email: { not: 'lifetime_school_email@example.com' }, // exclude lifetime
+        email: { not: 'lucy.hood@exposure-pr.co.uk' }, // exclude lifetime
       },
     });
 
@@ -477,7 +477,7 @@ export class PaymentService {
       where: {
         organization_id: organizationId,
         is_special: false,
-        email: { not: 'lifetime_school_email@example.com' }, // exclude lifetime
+        email: { not: 'lucy.hood@exposure-pr.co.uk' }, // exclude lifetime
       },
     });
 
