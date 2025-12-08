@@ -49,6 +49,7 @@ export class SchoolController {
       image: school.image,
       is_paid: school.is_paid,
       is_special: school.is_special,
+      subscription_end: school.subscription_end,
       created_at: school.created_at,
       updated_at: school.updated_at,
       cost: school.cost ?? null,
