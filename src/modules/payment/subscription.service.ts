@@ -5,6 +5,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from 'src/modules/email/email.service';
 import { LIFETIME_SCHOOL_EMAIL } from './payment.service';
 
+export const SIX_MONTH_SCHOOL_EMAIL = 'a.gillings@blundeston.suffolk.sch.uk';
+
 @Injectable()
 export class SubscriptionService {
   constructor(
@@ -29,7 +31,7 @@ export class SubscriptionService {
     });
 
     // ----------------- 6-Month subscription school -----------------
-    const sixMonthSchoolEmail = 'a.gillings@blundeston.suffolk.sch.uk';
+    const sixMonthSchoolEmail = `${SIX_MONTH_SCHOOL_EMAIL}`;
     const sixMonthSchoolsToUpdate = await this.prisma.school.findMany({
       where: {
         is_special: true,

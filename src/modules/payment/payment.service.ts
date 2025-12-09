@@ -4,8 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SIX_MONTH_SCHOOL_EMAIL } from './subscription.service';
 
-export const LIFETIME_SCHOOL_EMAIL = 'lucyhood79@gmail.com';
+// export const LIFETIME_SCHOOL_EMAIL = 'lucyhood79@gmail.com';
+export const LIFETIME_SCHOOL_EMAIL = 'riyaheh589@naqulu.com';
 
 @Injectable()
 export class PaymentService {
@@ -242,7 +244,7 @@ export class PaymentService {
         },
       });
 
-      if (school && school.id === 1) {
+      if (school.email === SIX_MONTH_SCHOOL_EMAIL) {
         // special school only
         const unitPricePence = 5000;
         const session = await this.stripe.checkout.sessions.create({
