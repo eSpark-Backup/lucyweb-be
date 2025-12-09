@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from 'src/modules/email/email.service';
+import { LIFETIME_SCHOOL_EMAIL } from './payment.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -69,7 +70,7 @@ export class SubscriptionService {
 
   // Send subscription expiry reminder emails
   private async sendSubscriptionExpiryReminder(schools: any[]) {
-    const lifetimeSchoolEmail = 'lucy.hood@exposure-pr.co.uk';
+    const lifetimeSchoolEmail = LIFETIME_SCHOOL_EMAIL;
 
     for (const school of schools) {
       if (school.email === lifetimeSchoolEmail) continue; // skip lifetime school
