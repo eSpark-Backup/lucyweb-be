@@ -5,6 +5,8 @@ import Stripe from 'stripe';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 
+export const LIFETIME_SCHOOL_EMAIL = 'lucyhood79@gmail.com';
+
 @Injectable()
 export class PaymentService {
   private stripe: Stripe;
@@ -236,7 +238,7 @@ export class PaymentService {
         where: {
           organization_id: org.id,
           is_special: true,
-          email: { not: 'lucy.hood@exposure-pr.co.uk' }, // skip lifetime
+          email: { not: `${LIFETIME_SCHOOL_EMAIL}` }, // skip lifetime
         },
       });
 
@@ -456,7 +458,7 @@ export class PaymentService {
       where: {
         organization_id: organizationId,
         is_special: true,
-        email: { not: 'lucy.hood@exposure-pr.co.uk' }, // exclude lifetime
+        email: { not: `${LIFETIME_SCHOOL_EMAIL}` }, // exclude lifetime
       },
     });
 
@@ -477,7 +479,7 @@ export class PaymentService {
       where: {
         organization_id: organizationId,
         is_special: false,
-        email: { not: 'lucy.hood@exposure-pr.co.uk' }, // exclude lifetime
+        email: { not: `${LIFETIME_SCHOOL_EMAIL}` }, // exclude lifetime
       },
     });
 
