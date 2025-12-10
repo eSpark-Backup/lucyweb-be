@@ -6,8 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { SIX_MONTH_SCHOOL_EMAIL } from './subscription.service';
 
-// export const LIFETIME_SCHOOL_EMAIL = 'lucyhood79@gmail.com';
-export const LIFETIME_SCHOOL_EMAIL = 'riyaheh589@naqulu.com';
+export const LIFETIME_SCHOOL_EMAIL = 'lucyhood79@gmail.com';
 
 @Injectable()
 export class PaymentService {
@@ -150,83 +149,6 @@ export class PaymentService {
     }
 
     // ────────── SINGLE-SCHOOL PLAN ──────────
-    // if (plan === 'single') {
-    //   if (org.is_trust) {
-    //     throw new HttpException(
-    //       'Trust organizations must use the trust plan',
-    //       HttpStatus.BAD_REQUEST,
-    //     );
-    //   }
-
-    //   // Only 1 school allowed, always £50
-    //   // const unitPricePence = 5000;
-    //   // const session = await this.stripe.checkout.sessions.create({
-    //   //   mode: 'subscription',
-    //   //   payment_method_types: ['card'],
-    //   //   line_items: [
-    //   //     {
-    //   //       price_data: {
-    //   //         currency: 'gbp',
-    //   //         product_data: { name: 'Single School Plan' },
-    //   //         unit_amount: unitPricePence,
-    //   //         recurring: { interval: 'month' },
-    //   //       },
-    //   //       quantity: 1,
-    //   //     },
-    //   //   ],
-    //   //   success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-    //   //   cancel_url: `${this.baseUrl}/cancel`,
-    //   //   metadata: { organizationId: org.id.toString(), plan },
-    //   // });
-
-    //   // Only for special school with 6-month subscription
-    //   const school = await this.prisma.school.findFirst({
-    //     where: { organization_id: org.id, is_special: true },
-    //   });
-
-    //   if (school && school.id === 1) {
-    //     // special school only
-    //     const unitPricePence = 5000;
-    //     await this.stripe.checkout.sessions.create({
-    //       mode: 'subscription',
-    //       payment_method_types: ['card'],
-    //       line_items: [
-    //         {
-    //           price_data: {
-    //             currency: 'gbp',
-    //             product_data: { name: 'Single School Plan - 6 Months' },
-    //             unit_amount: unitPricePence,
-    //             recurring: { interval: 'month', interval_count: 6 }, // 6-month subscription
-    //           },
-    //           quantity: 1,
-    //         },
-    //       ],
-    //       success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-    //       cancel_url: `${this.baseUrl}/cancel`,
-    //       metadata: {
-    //         organizationId: org.id.toString(),
-    //         plan,
-    //         schoolId: school.id,
-    //       },
-    //     });
-    //   }
-
-    //   await this.prisma.payment.create({
-    //     data: {
-    //       organization_id: org.id,
-    //       amount: unitPricePence / 100,
-    //       currency: 'GBP',
-    //       status: 'pending',
-    //       description: 'Single school subscription',
-    //       stripe_session_id: session.id,
-    //       schools_count: 1,
-    //       unit_price: unitPricePence / 100,
-    //     },
-    //   });
-
-    //   return { id: session.id, url: session.url };
-    // }
-    // ────────── SINGLE-SCHOOL PLAN ──────────
     if (plan === 'single') {
       if (org.is_trust) {
         throw new HttpException(
@@ -244,7 +166,7 @@ export class PaymentService {
         },
       });
 
-      if (school.email === SIX_MONTH_SCHOOL_EMAIL) {
+      if (school?.email === SIX_MONTH_SCHOOL_EMAIL) {
         // special school only
         const unitPricePence = 5000;
         const session = await this.stripe.checkout.sessions.create({
@@ -439,21 +361,6 @@ export class PaymentService {
       });
     }
 
-    // ────────── Mark newly paid schools as paid ──────────
-    // if (paymentRow.schools_count > 0) {
-    //   const unpaid = await this.prisma.school.findMany({
-    //     where: { organization_id: organizationId, is_paid: false },
-    //     take: paymentRow.schools_count,
-    //     select: { id: true },
-    //   });
-
-    //   if (unpaid.length) {
-    //     await this.prisma.school.updateMany({
-    //       where: { id: { in: unpaid.map((s) => s.id) } },
-    //       data: { is_paid: true },
-    //     });
-    //   }
-    // }
     // Only mark the special school as paid and set 6-month subscription_end
     // Skip lifetime school completely
     const specialSchool = await this.prisma.school.findFirst({
@@ -477,33 +384,20 @@ export class PaymentService {
       });
     }
 
-    const normalSchool = await this.prisma.school.findFirst({
+    const oneMonthLater = new Date();
+    oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+
+    await this.prisma.school.updateMany({
       where: {
         organization_id: organizationId,
         is_special: false,
-        email: { not: `${LIFETIME_SCHOOL_EMAIL}` }, // exclude lifetime
+        email: { not: `${LIFETIME_SCHOOL_EMAIL}` },
+      },
+      data: {
+        is_paid: true,
+        subscription_end: oneMonthLater,
       },
     });
-
-    if (normalSchool) {
-      const oneMonthLater = new Date();
-      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-
-      await this.prisma.school.update({
-        where: { id: normalSchool.id },
-        data: { is_paid: true, subscription_end: oneMonthLater },
-      });
-    }
-
-    if (normalSchool) {
-      const oneMonthLater = new Date();
-      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-
-      await this.prisma.school.update({
-        where: { id: normalSchool.id },
-        data: { is_paid: true, subscription_end: oneMonthLater },
-      });
-    }
 
     // ────────── Update subscription info & send receipt ──────────
     const org = await this.prisma.organization.update({
