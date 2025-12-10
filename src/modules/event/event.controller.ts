@@ -14,6 +14,7 @@ import {
   Req,
   NotFoundException,
   ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 import { EventService } from './event.service';
@@ -57,6 +58,14 @@ export class EventController {
       return { message: 'No events found' };
     }
     return events;
+  }
+
+  @Get('images/search')
+  async searchImages(@Query('query') query: string) {
+    if (!query) {
+      throw new BadRequestException('Query parameter is required');
+    }
+    return this.eventsService.searchImages(query);
   }
 
   @Get(':id')

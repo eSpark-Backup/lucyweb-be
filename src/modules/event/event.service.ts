@@ -563,4 +563,20 @@ export class EventService {
 
     return { success: true };
   }
+  async searchImages(query: string): Promise<any> {
+    const response = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          Authorization: process.env.PEXELS_API_KEY,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch images from Pexels');
+    }
+
+    return response.json();
+  }
 }
