@@ -390,6 +390,7 @@ export class PaymentService {
     await this.prisma.school.updateMany({
       where: {
         organization_id: organizationId,
+        is_paid: false,
         is_special: false,
         email: { not: `${LIFETIME_SCHOOL_EMAIL}` },
       },

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,7 @@ import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
 import { json } from 'stream/consumers';
+import { LIFETIME_SCHOOL_EMAIL } from '../payment/payment.service';
 
 interface ContentResponse extends Content {
   content_types: Content['content_type'];
@@ -29,6 +31,20 @@ export class EventService {
     private readonly storageService: StorageService,
     private readonly emailService: EmailService,
   ) {}
+
+  private checkSchoolAccess(school: {
+    email: string;
+    is_paid: boolean;
+    subscription_end: Date | null;
+  }) {
+    if (
+      school.email !== LIFETIME_SCHOOL_EMAIL &&
+      (!school.is_paid ||
+        (school.subscription_end && school.subscription_end < new Date()))
+    ) {
+      throw new ForbiddenException('Subscription expired');
+    }
+  }
 
   async getEventCountByDay(
     year: number,

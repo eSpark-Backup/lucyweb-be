@@ -13,7 +13,7 @@ import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { PaymentService } from './payment.service';
+import { LIFETIME_SCHOOL_EMAIL, PaymentService } from './payment.service';
 
 @Controller('payment')
 export class PaymentWebhookController {
@@ -103,6 +103,17 @@ export class PaymentWebhookController {
             });
 
             if (org) {
+              // ✅ Get original payment details
+              const originalPayment = await this.prisma.payment.findFirst({
+                where: {
+                  organization_id: org.id,
+                  stripe_subscription_id: subscriptionId,
+                  status: 'success',
+                },
+                orderBy: { created_at: 'asc' },
+                select: { schools_count: true, unit_price: true },
+              });
+
               await this.prisma.payment.create({
                 data: {
                   organization_id: org.id,
@@ -112,9 +123,49 @@ export class PaymentWebhookController {
                   description: 'Recurring subscription payment',
                   stripe_invoice_id: invoice.id,
                   stripe_subscription_id: subscriptionId,
+                  schools_count: originalPayment?.schools_count ?? 1, // ✅ ADD
+                  unit_price: originalPayment?.unit_price ?? 50, // ✅ ADD
                   created_at: new Date(),
                 },
               });
+
+              // ✅ Extend subscription for monthly schools
+              const oneMonthLater = new Date();
+              oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+
+              await this.prisma.school.updateMany({
+                where: {
+                  organization_id: org.id,
+                  is_paid: true,
+                  is_special: false,
+                  email: { not: LIFETIME_SCHOOL_EMAIL },
+                },
+                data: {
+                  subscription_end: oneMonthLater,
+                },
+              });
+
+              // ✅ Handle 6-month special school
+              const SIX_MONTH_SCHOOL_EMAIL =
+                'a.gillings@blundeston.suffolk.sch.uk';
+              const sixMonthSchool = await this.prisma.school.findFirst({
+                where: {
+                  organization_id: org.id,
+                  is_special: true,
+                  is_paid: true,
+                  email: SIX_MONTH_SCHOOL_EMAIL,
+                },
+              });
+
+              if (sixMonthSchool) {
+                const sixMonthsLater = new Date();
+                sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
+
+                await this.prisma.school.update({
+                  where: { id: sixMonthSchool.id },
+                  data: { subscription_end: sixMonthsLater },
+                });
+              }
 
               await this.prisma.organization.update({
                 where: { id: org.id },
@@ -137,11 +188,29 @@ export class PaymentWebhookController {
           const invoice = event.data.object as Stripe.Invoice;
           const subscriptionId =
             ((invoice as any).subscription as string | null) ?? null;
+
           if (subscriptionId) {
-            await this.prisma.organization.updateMany({
+            const org = await this.prisma.organization.findFirst({
               where: { stripe_subscription_id: subscriptionId },
-              data: { subscription_status: 'past_due' },
             });
+
+            if (org) {
+              // Mark organization as past_due
+              await this.prisma.organization.update({
+                where: { id: org.id },
+                data: { subscription_status: 'past_due' },
+              });
+
+              // Mark schools as unpaid after grace period (optional)
+              await this.prisma.school.updateMany({
+                where: {
+                  organization_id: org.id,
+                  is_paid: true,
+                  email: { not: LIFETIME_SCHOOL_EMAIL },
+                },
+                data: { is_paid: false },
+              });
+            }
           }
           break;
         }

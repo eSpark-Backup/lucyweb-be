@@ -15,59 +15,104 @@ export class SubscriptionService {
   ) {}
 
   // This cron job will run every day at midnight (or set your preferred schedule)
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   // @Cron('*/55 * * * * *')
+  // async handleExpiredSubscriptions() {
+  //   const now = new Date();
+  //   const sevenDaysLater = new Date();
+  //   sevenDaysLater.setDate(now.getDate() + 7);
+
+  //   const regularSchoolsToUpdate = await this.prisma.school.findMany({
+  //     where: {
+  //       is_special: false,
+  //       is_paid: true,
+  //       subscription_end: { gte: now, lte: sevenDaysLater }, // upcoming 7 days
+  //     },
+  //   });
+
+  //   // ----------------- 6-Month subscription school -----------------
+  //   const sixMonthSchoolEmail = `${SIX_MONTH_SCHOOL_EMAIL}`;
+  //   const sixMonthSchoolsToUpdate = await this.prisma.school.findMany({
+  //     where: {
+  //       is_special: true,
+  //       is_paid: true,
+  //       email: sixMonthSchoolEmail,
+  //       subscription_end: { gte: now, lte: sevenDaysLater },
+  //     },
+  //   });
+
+  //   // ----------------- Send expiry reminders -----------------
+  //   await this.sendSubscriptionExpiryReminder(regularSchoolsToUpdate);
+  //   await this.sendSubscriptionExpiryReminder(sixMonthSchoolsToUpdate);
+
+  //   // ----------------- Update subscription status -----------------
+  //   // Regular schools
+  //   await this.prisma.school.updateMany({
+  //     where: {
+  //       is_special: false,
+  //       is_paid: true,
+  //       subscription_end: { lt: now },
+  //     },
+  //     data: { is_paid: false },
+  //   });
+
+  //   // 6-month school
+  //   await this.prisma.school.updateMany({
+  //     where: {
+  //       is_special: true,
+  //       is_paid: true,
+  //       email: sixMonthSchoolEmail,
+  //       subscription_end: { lt: now },
+  //     },
+  //     data: { is_paid: false },
+  //   });
+
+  //   console.log('Expired subscriptions handled successfully.');
+  // }
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleExpiredSubscriptions() {
     const now = new Date();
     const sevenDaysLater = new Date();
     sevenDaysLater.setDate(now.getDate() + 7);
 
-    const regularSchoolsToUpdate = await this.prisma.school.findMany({
+    // Find schools expiring in next 7 days (for reminders)
+    const expiringSchools = await this.prisma.school.findMany({
       where: {
-        is_special: false,
         is_paid: true,
-        subscription_end: { gte: now, lte: sevenDaysLater }, // upcoming 7 days
-      },
-    });
-
-    // ----------------- 6-Month subscription school -----------------
-    const sixMonthSchoolEmail = `${SIX_MONTH_SCHOOL_EMAIL}`;
-    const sixMonthSchoolsToUpdate = await this.prisma.school.findMany({
-      where: {
-        is_special: true,
-        is_paid: true,
-        email: sixMonthSchoolEmail,
         subscription_end: { gte: now, lte: sevenDaysLater },
+        email: {
+          notIn: [LIFETIME_SCHOOL_EMAIL], // exclude lifetime
+        },
       },
     });
 
-    // ----------------- Send expiry reminders -----------------
-    await this.sendSubscriptionExpiryReminder(regularSchoolsToUpdate);
-    await this.sendSubscriptionExpiryReminder(sixMonthSchoolsToUpdate);
+    // Send reminders
+    await this.sendSubscriptionExpiryReminder(expiringSchools);
 
-    // ----------------- Update subscription status -----------------
-    // Regular schools
-    await this.prisma.school.updateMany({
+    // Mark ONLY schools with FAILED subscription payments as unpaid
+    // Get all organizations with canceled/past_due subscriptions
+    const failedOrgs = await this.prisma.organization.findMany({
       where: {
-        is_special: false,
-        is_paid: true,
-        subscription_end: { lt: now },
+        subscription_status: { in: ['canceled', 'past_due'] },
       },
-      data: { is_paid: false },
+      select: { id: true },
     });
 
-    // 6-month school
-    await this.prisma.school.updateMany({
-      where: {
-        is_special: true,
-        is_paid: true,
-        email: sixMonthSchoolEmail,
-        subscription_end: { lt: now },
-      },
-      data: { is_paid: false },
-    });
+    if (failedOrgs.length > 0) {
+      const failedOrgIds = failedOrgs.map((o) => o.id);
 
-    console.log('Expired subscriptions handled successfully.');
+      await this.prisma.school.updateMany({
+        where: {
+          organization_id: { in: failedOrgIds },
+          is_paid: true,
+          subscription_end: { lt: now },
+          email: { not: LIFETIME_SCHOOL_EMAIL },
+        },
+        data: { is_paid: false },
+      });
+    }
+
+    console.log('Subscription check completed.');
   }
 
   // Send subscription expiry reminder emails
