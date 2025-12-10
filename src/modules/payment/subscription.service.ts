@@ -5,7 +5,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from 'src/modules/email/email.service';
 import { LIFETIME_SCHOOL_EMAIL } from './payment.service';
 
-export const SIX_MONTH_SCHOOL_EMAIL = 'a.gillings@blundeston.suffolk.sch.uk';
+// export const SIX_MONTH_SCHOOL_EMAIL = 'a.gillings@blundeston.suffolk.sch.uk';
+export const SIX_MONTH_SCHOOL_EMAIL = 'caxoc91404@roastic.com';
 
 @Injectable()
 export class SubscriptionService {
@@ -15,8 +16,8 @@ export class SubscriptionService {
   ) {}
 
   // This cron job will run every day at midnight (or set your preferred schedule)
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  // @Cron('*/10 * * * * *')
+  //@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron('*/10 * * * * *')
   async handleExpiredSubscriptions() {
     const now = new Date();
     const sevenDaysLater = new Date();
