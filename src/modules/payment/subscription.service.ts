@@ -70,6 +70,7 @@ export class SubscriptionService {
   //   console.log('Expired subscriptions handled successfully.');
   // }
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // @Cron('*/55 * * * * *')
   async handleExpiredSubscriptions() {
     const now = new Date();
     const sevenDaysLater = new Date();
@@ -91,6 +92,15 @@ export class SubscriptionService {
 
     // Mark ONLY schools with FAILED subscription payments as unpaid
     // Get all organizations with canceled/past_due subscriptions
+    // Mark all schools as unpaid if their subscription_end is past, regardless of org status
+    await this.prisma.school.updateMany({
+      where: {
+        is_paid: true,
+        subscription_end: { lt: new Date() },
+        email: { not: LIFETIME_SCHOOL_EMAIL },
+      },
+      data: { is_paid: false },
+    });
     const failedOrgs = await this.prisma.organization.findMany({
       where: {
         subscription_status: { in: ['canceled', 'past_due'] },

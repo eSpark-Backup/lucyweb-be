@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { Content, Event, Prisma } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
@@ -605,9 +606,11 @@ export class EventService {
 
     return { success: true };
   }
-  async searchImages(query: string): Promise<any> {
+  async searchImages(query: string, perPage?: string): Promise<any> {
     const response = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}`,
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}${
+        perPage ? `&per_page=${perPage}` : ''
+      }`,
       {
         headers: {
           Authorization: process.env.PEXELS_API_KEY,
