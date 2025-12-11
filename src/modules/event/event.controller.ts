@@ -64,11 +64,12 @@ export class EventController {
   async searchImages(
     @Query('query') query: string,
     @Query('per_page') perPage?: string,
+    @Query('page') page?: string,
   ) {
     if (!query) {
       throw new BadRequestException('Query parameter is required');
     }
-    return this.eventsService.searchImages(query, perPage);
+    return this.eventsService.searchImages(query, perPage, page);
   }
 
   @Get(':id')

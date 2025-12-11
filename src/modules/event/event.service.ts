@@ -606,11 +606,15 @@ export class EventService {
 
     return { success: true };
   }
-  async searchImages(query: string, perPage?: string): Promise<any> {
+  async searchImages(
+    query: string,
+    perPage?: string,
+    page?: string,
+  ): Promise<any> {
     const response = await fetch(
       `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}${
         perPage ? `&per_page=${perPage}` : ''
-      }`,
+      }${page ? `&page=${page}` : ''}`,
       {
         headers: {
           Authorization: process.env.PEXELS_API_KEY,
