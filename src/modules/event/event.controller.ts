@@ -60,16 +60,32 @@ export class EventController {
     return events;
   }
 
+  // @Get('images/search')
+  // async searchImages(
+  //   @Query('query') query: string,
+  //   @Query('per_page') perPage?: string,
+  //   @Query('page') page?: string,
+  // ) {
+  //   if (!query) {
+  //     throw new BadRequestException('Query parameter is required');
+  //   }
+  //   return this.eventsService.searchImages(query, perPage, page);
+  // }
+
   @Get('images/search')
   async searchImages(
     @Query('query') query: string,
     @Query('per_page') perPage?: string,
     @Query('page') page?: string,
   ) {
-    if (!query) {
+    if (!query || query.trim() === '') {
       throw new BadRequestException('Query parameter is required');
     }
-    return this.eventsService.searchImages(query, perPage, page);
+
+    // Trim extra spaces and normalize query
+    const normalizedQuery = query.trim();
+
+    return this.eventsService.searchImages(normalizedQuery, perPage, page);
   }
 
   @Get(':id')
