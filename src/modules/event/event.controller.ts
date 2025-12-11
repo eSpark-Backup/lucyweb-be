@@ -83,10 +83,17 @@ export class EventController {
   @UseInterceptors(FileInterceptor('image'))
   async createEvent(
     @Body() data: Prisma.EventCreateInput,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File | string,
     @Request() req,
   ) {
-    return this.eventsService.createEvent(data, req.user.id, file);
+    let finalImage: Express.Multer.File | string = file;
+
+    if (!file && typeof data.image === 'string') {
+      // Means no uploaded file but URL sent under same key
+      finalImage = data.image; // keep URL
+    }
+
+    return this.eventsService.createEvent(data, req.user.id, finalImage);
   }
 
   @Put(':id')
@@ -95,11 +102,17 @@ export class EventController {
   async updateEvent(
     @Param('id') id: string,
     @Body() data: Prisma.EventUpdateInput & { school_id?: number | null },
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File | string,
     @Req() req,
   ) {
+    let finalImage: Express.Multer.File | string = file;
+
+    if (!file && typeof data.image === 'string') {
+      finalImage = data.image;
+    }
+
+    return this.eventsService.updateEvent(+id, data, req.user.id, finalImage);
     // pass userId from logged-in user, then file
-    return this.eventsService.updateEvent(+id, data, req.user.id, file);
   }
 
   @Delete(':id')

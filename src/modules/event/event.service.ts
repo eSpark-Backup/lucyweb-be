@@ -11,7 +11,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
-import { json } from 'stream/consumers';
 import { LIFETIME_SCHOOL_EMAIL } from '../payment/payment.service';
 
 interface ContentResponse extends Content {
@@ -126,9 +125,12 @@ export class EventService {
   }
 
   async createEvent(
-    data: Prisma.EventCreateInput & { school_email?: string },
+    data: Prisma.EventCreateInput & {
+      school_email?: string;
+      image_url?: string;
+    },
     userId: number,
-    file?: Express.Multer.File,
+    file?: Express.Multer.File | string,
   ): Promise<Event> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -154,8 +156,17 @@ export class EventService {
     }
 
     let imageUrl: string | undefined;
-    if (file) {
+
+    // Accept file upload
+    if (file && typeof file !== 'string') {
+      // file is an actual uploaded file
       imageUrl = await this.storageService.uploadFile(file);
+    } else if (file && typeof file === 'string') {
+      // file is a string (URL) sent under same key
+      imageUrl = file;
+    } else if (data.image_url) {
+      // fallback to image_url in data
+      imageUrl = data.image_url;
     }
 
     let schoolToConnect: { id: number } | undefined;
@@ -179,7 +190,7 @@ export class EventService {
       );
     }
 
-    const { school_email, ...rest } = data;
+    const { school_email, image_url, ...rest } = data;
 
     return this.prisma.event.create({
       data: {
@@ -205,9 +216,12 @@ export class EventService {
 
   async updateEvent(
     id: number,
-    data: Prisma.EventUpdateInput & { school_email?: string | null },
+    data: Prisma.EventUpdateInput & {
+      school_email?: string | null;
+      image_url?: string;
+    },
     userId?: number,
-    file?: Express.Multer.File,
+    file?: Express.Multer.File | string,
   ): Promise<Event> {
     if (data.name) {
       const existingEvent = await this.prisma.event.findFirst({
@@ -234,7 +248,19 @@ export class EventService {
     }
 
     let imageUrl: string | undefined;
-    if (file) imageUrl = await this.storageService.uploadFile(file);
+
+    if (file) {
+      if (typeof file === 'string') imageUrl = file;
+      else imageUrl = await this.storageService.uploadFile(file);
+    } else if (data.image_url) {
+      imageUrl = data.image_url;
+    } else {
+      const existingEvent = await this.prisma.event.findUnique({
+        where: { id },
+        select: { image: true },
+      });
+      imageUrl = existingEvent?.image || undefined;
+    }
 
     let schoolToConnect: { id: number } | undefined;
     if (data.school_email) {
@@ -266,7 +292,7 @@ export class EventService {
       existingImage = existingEvent?.image || null;
     }
 
-    const { contents, school_email, ...eventData } = data;
+    const { contents, school_email, image_url, ...eventData } = data;
 
     const updatePayload: Prisma.EventUpdateInput = {
       ...eventData,
