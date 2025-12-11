@@ -606,24 +606,53 @@ export class EventService {
 
     return { success: true };
   }
+  // async searchImages(
+  //   query: string,
+  //   perPage?: string,
+  //   page?: string,
+  // ): Promise<any> {
+  //   const response = await fetch(
+  //     `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}${
+  //       perPage ? `&per_page=${perPage}` : ''
+  //     }${page ? `&page=${page}` : ''}`,
+  //     {
+  //       headers: {
+  //         Authorization: process.env.PEXELS_API_KEY,
+  //       },
+  //     },
+  //   );
+
+  //   if (!response.ok) {
+  //     throw new Error('Failed to fetch images from Pexels');
+  //   }
+
+  //   return response.json();
+  // }
+
   async searchImages(
     query: string,
     perPage?: string,
     page?: string,
   ): Promise<any> {
-    const response = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}${
-        perPage ? `&per_page=${perPage}` : ''
-      }${page ? `&page=${page}` : ''}`,
-      {
-        headers: {
-          Authorization: process.env.PEXELS_API_KEY,
-        },
+    if (!process.env.PEXELS_API_KEY) {
+      throw new Error('PEXELS_API_KEY is not set in environment variables');
+    }
+
+    // Default values if not provided
+    const per_page = perPage ? parseInt(perPage, 10) : 15;
+    const pageNumber = page ? parseInt(page, 10) : 1;
+
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${per_page}&page=${pageNumber}`;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: process.env.PEXELS_API_KEY,
       },
-    );
+    });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch images from Pexels');
+      const text = await response.text();
+      throw new Error(`Failed to fetch images from Pexels: ${text}`);
     }
 
     return response.json();
