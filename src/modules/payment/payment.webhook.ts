@@ -77,6 +77,9 @@ export class PaymentWebhookController {
               console.warn(
                 'checkout.session.completed: missing session id in event',
               );
+              return res.status(400).json({
+                error: 'Missing session ID in event',
+              });
             }
           } catch (err) {
             // log full error so we can see why it failed
@@ -85,8 +88,12 @@ export class PaymentWebhookController {
               session.id,
               err,
             );
+            // ✅ CRITICAL FIX: Return error status so Stripe retries
+            return res.status(500).json({
+              error: 'Payment processing failed',
+              session_id: session.id,
+            });
           }
-
           break;
         }
 
