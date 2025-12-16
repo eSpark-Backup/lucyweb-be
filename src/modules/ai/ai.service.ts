@@ -32,13 +32,13 @@ export class AiService {
 
       try {
         const response = await this.openai.chat.completions.create({
-          model: 'gpt-4o-mini',
-          temperature: 0,
+          model: 'gpt-4o',
+          temperature: 0.6,
           messages: [
             {
               role: 'system',
               content:
-                'You are a professional content writer. ONLY use the information provided in the user prompt. Do NOT add or invent any dates, times, locations, names, emotional content, or extra details.',
+                'You are a professional education-sector content writer. Use ONLY the facts provided, but you may adapt, rephrase, summarise, and format them appropriately for the requested platform. Do NOT invent dates, times, locations, names, or events that are not stated.',
             },
             { role: 'user', content: prompt },
           ],
@@ -75,22 +75,79 @@ export class AiService {
 
     switch (contentType) {
       case 'press_release':
-        return `${baseInstruction} Produce a detailed press release of more than 600 words (4 to 5 paragraphs) about "${promptText}" for the event titled "${eventName}". Do NOT create or fabricate teacher quotes, staff quotes, or any person’s name unless it is included in the description. Do NOT invent times, dates, locations, emotional content, or additional details. Don't use bold styling. Use simple and factual language, no complex words.`;
+        return `${baseInstruction}
+Write a brief, factual press release-style description (150–200 words) of the event titled "${eventName}" using the following description:
+"${promptText}"
+
+Purpose:
+- This is a short public description, NOT a long-form article
+- Neutral, factual tone
+- Past tense
+- No quotes
+- No invented details
+- Do not repeat the description word-for-word
+`;
 
       case 'instagram_post':
-        return `${baseInstruction} Create an engaging Instagram caption for "${eventName}" about "${promptText}". Include only the details explicitly provided. Do NOT invent content, emojis, hashtags, or any extra commentary. Don't use bold styling.`;
+        return `${baseInstruction}
+Create an engaging Instagram caption for the event "${eventName}" based on:
+"${promptText}"
+
+Rules:
+- Friendly, upbeat tone
+- Use relevant emojis
+- Include 5–8 relevant hashtags at the end
+- Do NOT invent dates, names, or locations
+- Adapt the wording; do not copy the description
+`;
 
       case 'facebook_post':
-        return `${baseInstruction} Create a Facebook post for "${eventName}" about "${promptText}". Include only the information explicitly provided. Do NOT invent content, calls to action, or extra commentary. Don't use bold styling.`;
+        return `${baseInstruction}
+Create a Facebook post for parents and the school community about the event "${eventName}" using:
+"${promptText}"
+
+Rules:
+- Warm, informative tone
+- No emojis or minimal emojis
+- No hashtags
+- Written as a short community update
+- Do not copy the description text
+`;
 
       case 'newsletter':
-        return `${baseInstruction} Write a more than 200-word newsletter paragraph about "${promptText}" for the event titled "${eventName}". Include only the details explicitly provided. Do NOT invent content or additional information. Don't use bold styling.`;
+        return `${baseInstruction}
+Write a newsletter article (150–200 words) for parents about the event "${eventName}" using:
+"${promptText}"
+
+Rules:
+- MUST be written entirely in the past tense
+- Informative and reflective
+- Assume the event has already happened
+- Do not invent outcomes or details
+- Adapt the wording; do not repeat the description verbatim
+`;
 
       case 'summary':
-        return `${baseInstruction} Write a concise 2 to 3 sentence summary about "${promptText}" for the event titled "${eventName}". Include only the information explicitly provided. Do NOT invent content or additional details. Don't use bold styling.`;
+        return `${baseInstruction}
+Write a concise 2–3 sentence summary in past tense for the event "${eventName}" based on:
+"${promptText}"
+
+Rules:
+- Factual
+- No added details
+- Human, natural wording
+`;
 
       case 'governor_summary':
-        return `${baseInstruction} Write a 2 to 3 sentence "Governor report summary" for the event titled "${eventName}". Summarize only the positive outcomes and achievements explicitly provided in the prompt. Do NOT invent content, details, or additional achievements. Make it factual and human-written. Don't use bold styling.`;
+        return `${baseInstruction}
+Write a 2–3 sentence governor report summary in past tense for the event "${eventName}" based on:
+"${promptText}"
+
+Rules:
+- Focus on outcomes and value
+- No invented achievements
+- Formal, factual tone
+`;
 
       default:
         throw new Error('Invalid content type');
@@ -106,7 +163,7 @@ export class AiService {
       case 'facebook_post':
         return 250;
       case 'newsletter':
-        return 350;
+        return 300;
       case 'governor_summary':
       case 'summary':
         return 150;
