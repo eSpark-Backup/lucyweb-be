@@ -108,10 +108,11 @@ Create a Facebook post for parents and the school community about the event "${e
 
 Rules:
 - Warm, informative tone
-- No emojis or minimal emojis
-- No hashtags
+- Include 3–5 relevant hashtags at the end
+- Minimal use of emojis (optional, if it fits naturally)
 - Written as a short community update
-- Do not copy the description text
+- Adapt the wording; do not copy the description text verbatim
+- Do not invent dates, names, or locations
 `;
 
       case 'newsletter':
