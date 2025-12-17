@@ -139,15 +139,6 @@ export class EventService {
     });
     if (!user) throw new BadRequestException('User not found');
 
-    const existingEvent = await this.prisma.event.findFirst({
-      where: { name: data.name },
-    });
-    if (existingEvent) {
-      throw new BadRequestException(
-        `Event with name "${data.name}" already exists.`,
-      );
-    }
-
     const eventDate = new Date(data.date_time);
     if (isNaN(eventDate.getTime())) {
       throw new BadRequestException('Invalid date_time format');
@@ -185,6 +176,18 @@ export class EventService {
       schoolToConnect = { id: user.school.id };
     }
 
+    const existingEvent = await this.prisma.event.findFirst({
+      where: {
+        name: data.name,
+        school_id: schoolToConnect?.id,
+      },
+    });
+    if (existingEvent) {
+      throw new BadRequestException(
+        `Event with name "${data.name}" already exists.`,
+      );
+    }
+
     if (!schoolToConnect) {
       throw new BadRequestException(
         'school_email must be provided for trust users or the user must be linked to a school',
@@ -215,6 +218,114 @@ export class EventService {
     });
   }
 
+  // async updateEvent(
+  //   id: number,
+  //   data: Prisma.EventUpdateInput & {
+  //     school_email?: string | null;
+  //     image_url?: string;
+  //   },
+  //   userId?: number,
+  //   file?: Express.Multer.File | string,
+  // ): Promise<Event> {
+  //   if (data.date_time) {
+  //     const eventDate = new Date(data.date_time as string);
+  //     if (isNaN(eventDate.getTime())) {
+  //       throw new BadRequestException('Invalid date_time format.');
+  //     }
+  //     if (eventDate.getTime() < Date.now()) {
+  //       throw new BadRequestException(
+  //         'Cannot set event date/time in the past.',
+  //       );
+  //     }
+  //     data.date_time = new Date(eventDate.getTime());
+  //   }
+
+  //   let imageUrl: string | undefined;
+
+  //   if (file) {
+  //     if (typeof file === 'string') imageUrl = file;
+  //     else imageUrl = await this.storageService.uploadFile(file);
+  //   } else if (data.image_url) {
+  //     imageUrl = data.image_url;
+  //   } else {
+  //     const existingEvent = await this.prisma.event.findUnique({
+  //       where: { id },
+  //       select: { image: true },
+  //     });
+  //     imageUrl = existingEvent?.image || undefined;
+  //   }
+
+  //   let schoolToConnect: { id: number } | undefined;
+  //   if (data.school_email) {
+  //     const school = await this.prisma.school.findUnique({
+  //       where: { email: data.school_email },
+  //     });
+  //     if (!school) {
+  //       throw new BadRequestException(
+  //         `School with email ${data.school_email} not found.`,
+  //       );
+  //     }
+  //     schoolToConnect = { id: school.id };
+  //   } else if (userId) {
+  //     const user = await this.prisma.user.findUnique({
+  //       where: { id: userId },
+  //       include: { school: true },
+  //     });
+  //     if (user?.school) {
+  //       schoolToConnect = { id: user.school.id };
+  //     }
+  //   }
+
+  //   if (data.name) {
+  //     const existingEvent = await this.prisma.event.findFirst({
+  //       where: {
+  //         name: data.name as string,
+  //         school_id: schoolToConnect?.id,
+  //         id: { not: id },
+  //       },
+  //     });
+
+  //     if (existingEvent) {
+  //       throw new BadRequestException(
+  //         `Another event with name "${data.name}" already exists.`,
+  //       );
+  //     }
+  //   }
+
+  //   let existingImage: string | null = null;
+  //   if (!file) {
+  //     const existingEvent = await this.prisma.event.findUnique({
+  //       where: { id },
+  //       select: { image: true },
+  //     });
+  //     existingImage = existingEvent?.image || null;
+  //   }
+
+  //   const { contents, school_email, image_url, ...eventData } = data;
+
+  //   const updatePayload: Prisma.EventUpdateInput = {
+  //     ...eventData,
+  //     image: imageUrl || existingImage,
+  //     ...(schoolToConnect ? { school: { connect: schoolToConnect } } : {}),
+  //   };
+
+  //   return this.prisma.event.update({
+  //     where: { id },
+  //     data: updatePayload,
+  //     include: {
+  //       contents: true,
+  //       school: {
+  //         select: {
+  //           id: true,
+  //           name: true,
+  //           email: true,
+  //           is_paid: true,
+  //         },
+  //       },
+  //     },
+  //   });
+  // }
+
   async updateEvent(
     id: number,
     data: Prisma.EventUpdateInput & {
@@ -224,17 +335,7 @@ export class EventService {
     userId?: number,
     file?: Express.Multer.File | string,
   ): Promise<Event> {
-    if (data.name) {
-      const existingEvent = await this.prisma.event.findFirst({
-        where: { name: data.name as string, id: { not: id } },
-      });
-      if (existingEvent) {
-        throw new BadRequestException(
-          `Another event with name "${data.name}" already exists.`,
-        );
-      }
-    }
-
+    // Validate and normalize date
     if (data.date_time) {
       const eventDate = new Date(data.date_time as string);
       if (isNaN(eventDate.getTime())) {
@@ -248,11 +349,13 @@ export class EventService {
       data.date_time = new Date(eventDate.getTime());
     }
 
+    // Handle image upload / URL
     let imageUrl: string | undefined;
-
     if (file) {
-      if (typeof file === 'string') imageUrl = file;
-      else imageUrl = await this.storageService.uploadFile(file);
+      imageUrl =
+        typeof file === 'string'
+          ? file
+          : await this.storageService.uploadFile(file);
     } else if (data.image_url) {
       imageUrl = data.image_url;
     } else {
@@ -263,27 +366,42 @@ export class EventService {
       imageUrl = existingEvent?.image || undefined;
     }
 
+    // Determine the school for this event
     let schoolToConnect: { id: number } | undefined;
     if (data.school_email) {
       const school = await this.prisma.school.findUnique({
         where: { email: data.school_email },
       });
-      if (!school) {
+      if (!school)
         throw new BadRequestException(
           `School with email ${data.school_email} not found.`,
         );
-      }
       schoolToConnect = { id: school.id };
     } else if (userId) {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: { school: true },
       });
-      if (user?.school) {
-        schoolToConnect = { id: user.school.id };
+      if (user?.school) schoolToConnect = { id: user.school.id };
+    }
+
+    // Check for duplicate event name **only within the same school**
+    if (data.name && schoolToConnect) {
+      const existingEvent = await this.prisma.event.findFirst({
+        where: {
+          name: data.name as string,
+          school_id: schoolToConnect.id,
+          id: { not: id }, // exclude current event
+        },
+      });
+      if (existingEvent) {
+        throw new BadRequestException(
+          `Another event with name "${data.name}" already exists in this school.`,
+        );
       }
     }
 
+    // Keep existing image if no new file provided
     let existingImage: string | null = null;
     if (!file) {
       const existingEvent = await this.prisma.event.findUnique({
@@ -307,12 +425,7 @@ export class EventService {
       include: {
         contents: true,
         school: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            is_paid: true,
-          },
+          select: { id: true, name: true, email: true, is_paid: true },
         },
       },
     });
@@ -606,28 +719,6 @@ export class EventService {
 
     return { success: true };
   }
-  // async searchImages(
-  //   query: string,
-  //   perPage?: string,
-  //   page?: string,
-  // ): Promise<any> {
-  //   const response = await fetch(
-  //     `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}${
-  //       perPage ? `&per_page=${perPage}` : ''
-  //     }${page ? `&page=${page}` : ''}`,
-  //     {
-  //       headers: {
-  //         Authorization: process.env.PEXELS_API_KEY,
-  //       },
-  //     },
-  //   );
-
-  //   if (!response.ok) {
-  //     throw new Error('Failed to fetch images from Pexels');
-  //   }
-
-  //   return response.json();
-  // }
 
   async searchImages(
     query: string,
