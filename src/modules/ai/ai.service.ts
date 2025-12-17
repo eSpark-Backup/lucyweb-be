@@ -82,7 +82,7 @@ Write a brief, factual press release-style description (150–200 words) of the 
 Purpose:
 - This is a short public description, NOT a long-form article
 - Neutral, factual tone
-- Past tense
+- Future tense
 - No quotes
 - No invented details
 - Do not repeat the description word-for-word
