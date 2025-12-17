@@ -218,114 +218,6 @@ export class EventService {
     });
   }
 
-  // async updateEvent(
-  //   id: number,
-  //   data: Prisma.EventUpdateInput & {
-  //     school_email?: string | null;
-  //     image_url?: string;
-  //   },
-  //   userId?: number,
-  //   file?: Express.Multer.File | string,
-  // ): Promise<Event> {
-  //   if (data.date_time) {
-  //     const eventDate = new Date(data.date_time as string);
-  //     if (isNaN(eventDate.getTime())) {
-  //       throw new BadRequestException('Invalid date_time format.');
-  //     }
-  //     if (eventDate.getTime() < Date.now()) {
-  //       throw new BadRequestException(
-  //         'Cannot set event date/time in the past.',
-  //       );
-  //     }
-  //     data.date_time = new Date(eventDate.getTime());
-  //   }
-
-  //   let imageUrl: string | undefined;
-
-  //   if (file) {
-  //     if (typeof file === 'string') imageUrl = file;
-  //     else imageUrl = await this.storageService.uploadFile(file);
-  //   } else if (data.image_url) {
-  //     imageUrl = data.image_url;
-  //   } else {
-  //     const existingEvent = await this.prisma.event.findUnique({
-  //       where: { id },
-  //       select: { image: true },
-  //     });
-  //     imageUrl = existingEvent?.image || undefined;
-  //   }
-
-  //   let schoolToConnect: { id: number } | undefined;
-  //   if (data.school_email) {
-  //     const school = await this.prisma.school.findUnique({
-  //       where: { email: data.school_email },
-  //     });
-  //     if (!school) {
-  //       throw new BadRequestException(
-  //         `School with email ${data.school_email} not found.`,
-  //       );
-  //     }
-  //     schoolToConnect = { id: school.id };
-  //   } else if (userId) {
-  //     const user = await this.prisma.user.findUnique({
-  //       where: { id: userId },
-  //       include: { school: true },
-  //     });
-  //     if (user?.school) {
-  //       schoolToConnect = { id: user.school.id };
-  //     }
-  //   }
-
-  //   if (data.name) {
-  //     const existingEvent = await this.prisma.event.findFirst({
-  //       where: {
-  //         name: data.name as string,
-  //         school_id: schoolToConnect?.id,
-  //         id: { not: id },
-  //       },
-  //     });
-
-  //     if (existingEvent) {
-  //       throw new BadRequestException(
-  //         `Another event with name "${data.name}" already exists.`,
-  //       );
-  //     }
-  //   }
-
-  //   let existingImage: string | null = null;
-  //   if (!file) {
-  //     const existingEvent = await this.prisma.event.findUnique({
-  //       where: { id },
-  //       select: { image: true },
-  //     });
-  //     existingImage = existingEvent?.image || null;
-  //   }
-
-  //   const { contents, school_email, image_url, ...eventData } = data;
-
-  //   const updatePayload: Prisma.EventUpdateInput = {
-  //     ...eventData,
-  //     image: imageUrl || existingImage,
-  //     ...(schoolToConnect ? { school: { connect: schoolToConnect } } : {}),
-  //   };
-
-  //   return this.prisma.event.update({
-  //     where: { id },
-  //     data: updatePayload,
-  //     include: {
-  //       contents: true,
-  //       school: {
-  //         select: {
-  //           id: true,
-  //           name: true,
-  //           email: true,
-  //           is_paid: true,
-  //         },
-  //       },
-  //     },
-  //   });
-  // }
-
   async updateEvent(
     id: number,
     data: Prisma.EventUpdateInput & {
@@ -383,6 +275,19 @@ export class EventService {
         include: { school: true },
       });
       if (user?.school) schoolToConnect = { id: user.school.id };
+    }
+
+    if (!schoolToConnect) {
+      const existingEvent = await this.prisma.event.findUnique({
+        where: { id },
+        select: { school_id: true },
+      });
+
+      if (!existingEvent?.school_id) {
+        throw new BadRequestException('Event school not found');
+      }
+
+      schoolToConnect = { id: existingEvent.school_id };
     }
 
     // Check for duplicate event name **only within the same school**
