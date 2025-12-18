@@ -76,16 +76,17 @@ export class AiService {
     switch (contentType) {
       case 'press_release':
         return `${baseInstruction}
-Write a brief, factual press release-style description (150–200 words) of the event titled "${eventName}" using the following description:
+Write a professional, factual press release for the upcoming event titled "${eventName}" using the following description:
 "${promptText}"
 
-Purpose:
-- This is a short public description, NOT a long-form article
-- Neutral, factual tone
-- Future tense
-- No quotes
-- No invented details
-- Do not repeat the description word-for-word
+Rules:
+- Use future tense, as the event will happen
+- Produce 3–5 paragraphs, each paragraph 3–5 sentences
+- Ensure the press release is tighter and longer, with a natural flow
+- Neutral, informative, professional tone
+- Do NOT invent quotes, names, times, locations, or additional details
+- Do not repeat the description verbatim; adapt and rephrase it
+- End with a closing statement suitable for a press release
 `;
 
       case 'instagram_post':
