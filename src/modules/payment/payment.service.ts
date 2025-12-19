@@ -451,4 +451,31 @@ export class PaymentService {
     // Delegates to EmailService
     await this.emailService.sendSubscriptionExpiryReminder(email, details);
   }
+
+  async cancelSubscription(organizationId: number) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { stripe_subscription_id: true },
+    });
+
+    if (!org?.stripe_subscription_id) {
+      throw new HttpException(
+        'No active subscription found',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.stripe.subscriptions.update(org.stripe_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    await this.prisma.organization.update({
+      where: { id: organizationId },
+      data: {
+        subscription_status: 'canceling', // custom status
+      },
+    });
+
+    return { success: true };
+  }
 }

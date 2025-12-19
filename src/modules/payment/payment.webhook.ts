@@ -228,22 +228,53 @@ export class PaymentWebhookController {
         // Subscription cancelled
         case 'customer.subscription.deleted': {
           const subscription = event.data.object as Stripe.Subscription;
-          await this.prisma.organization.updateMany({
+
+          const org = await this.prisma.organization.findFirst({
             where: { stripe_subscription_id: subscription.id },
-            data: { subscription_status: 'canceled' },
           });
+
+          if (!org) break;
+
+          // Expire organization subscription
+          await this.prisma.organization.update({
+            where: { id: org.id },
+            data: {
+              subscription_status: 'expired',
+              stripe_subscription_id: null,
+            },
+          });
+
+          // Expire all paid schools (except lifetime)
+          await this.prisma.school.updateMany({
+            where: {
+              organization_id: org.id,
+              is_paid: true,
+              email: { not: LIFETIME_SCHOOL_EMAIL },
+            },
+            data: {
+              is_paid: false,
+            },
+          });
+
           break;
         }
 
         // Subscription updated
         case 'customer.subscription.updated': {
           const subscription = event.data.object as Stripe.Subscription;
-          await this.prisma.organization.updateMany({
-            where: { stripe_subscription_id: subscription.id },
-            data: {
-              subscription_status: subscription.status,
-            },
-          });
+
+          if (subscription.cancel_at_period_end) {
+            await this.prisma.organization.updateMany({
+              where: { stripe_subscription_id: subscription.id },
+              data: {
+                subscription_status: 'canceling',
+              },
+            });
+            console.log(
+              `Marked organization with subscription ${subscription.id} as canceling`,
+            );
+          }
+
           break;
         }
 

@@ -76,4 +76,15 @@ export class PaymentController {
       );
     }
   }
+  @Post('cancel-subscription')
+  async cancelSubscription(@Body('organizationId') organizationId: number) {
+    if (!organizationId) {
+      throw new HttpException(
+        'organizationId is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return this.paymentService.cancelSubscription(organizationId);
+  }
 }
