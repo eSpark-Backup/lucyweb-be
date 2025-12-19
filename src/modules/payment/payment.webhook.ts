@@ -106,7 +106,7 @@ export class PaymentWebhookController {
           if (subscriptionId) {
             const org = await this.prisma.organization.findFirst({
               where: { stripe_subscription_id: subscriptionId },
-              select: { id: true },
+              select: { id: true, is_trust: true },
             });
 
             if (org) {
@@ -121,6 +121,7 @@ export class PaymentWebhookController {
                 select: { schools_count: true, unit_price: true },
               });
 
+              // Create payment record
               await this.prisma.payment.create({
                 data: {
                   organization_id: org.id,
@@ -130,13 +131,13 @@ export class PaymentWebhookController {
                   description: 'Recurring subscription payment',
                   stripe_invoice_id: invoice.id,
                   stripe_subscription_id: subscriptionId,
-                  schools_count: originalPayment?.schools_count ?? 1, // ✅ ADD
-                  unit_price: originalPayment?.unit_price ?? 50, // ✅ ADD
+                  schools_count: originalPayment?.schools_count ?? 1,
+                  unit_price: originalPayment?.unit_price ?? 50,
                   created_at: new Date(),
                 },
               });
 
-              // ✅ Extend subscription for monthly schools
+              // ✅ FIX: Extend subscription for ALL monthly schools
               const oneMonthLater = new Date();
               oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
 
@@ -144,7 +145,7 @@ export class PaymentWebhookController {
                 where: {
                   organization_id: org.id,
                   is_paid: true,
-                  is_special: false,
+                  is_special: false, // Normal monthly schools
                   email: { not: LIFETIME_SCHOOL_EMAIL },
                 },
                 data: {
@@ -152,7 +153,7 @@ export class PaymentWebhookController {
                 },
               });
 
-              // ✅ Handle 6-month special school
+              // ✅ Handle 6-month special school separately
               const SIX_MONTH_SCHOOL_EMAIL =
                 'a.gillings@blundeston.suffolk.sch.uk';
               const sixMonthSchool = await this.prisma.school.findFirst({
@@ -165,6 +166,7 @@ export class PaymentWebhookController {
               });
 
               if (sixMonthSchool) {
+                // Check if this is a 6-month renewal (Stripe charges every 6 months)
                 const sixMonthsLater = new Date();
                 sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
 
@@ -174,6 +176,7 @@ export class PaymentWebhookController {
                 });
               }
 
+              // Update organization
               await this.prisma.organization.update({
                 where: { id: org.id },
                 data: {
