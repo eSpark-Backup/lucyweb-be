@@ -14,61 +14,6 @@ export class SubscriptionService {
     private emailService: EmailService, // Inject EmailService
   ) {}
 
-  // This cron job will run every day at midnight (or set your preferred schedule)
-  // @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  // @Cron('*/55 * * * * *')
-  // async handleExpiredSubscriptions() {
-  //   const now = new Date();
-  //   const sevenDaysLater = new Date();
-  //   sevenDaysLater.setDate(now.getDate() + 7);
-
-  //   const regularSchoolsToUpdate = await this.prisma.school.findMany({
-  //     where: {
-  //       is_special: false,
-  //       is_paid: true,
-  //       subscription_end: { gte: now, lte: sevenDaysLater }, // upcoming 7 days
-  //     },
-  //   });
-
-  //   // ----------------- 6-Month subscription school -----------------
-  //   const sixMonthSchoolEmail = `${SIX_MONTH_SCHOOL_EMAIL}`;
-  //   const sixMonthSchoolsToUpdate = await this.prisma.school.findMany({
-  //     where: {
-  //       is_special: true,
-  //       is_paid: true,
-  //       email: sixMonthSchoolEmail,
-  //       subscription_end: { gte: now, lte: sevenDaysLater },
-  //     },
-  //   });
-
-  //   // ----------------- Send expiry reminders -----------------
-  //   await this.sendSubscriptionExpiryReminder(regularSchoolsToUpdate);
-  //   await this.sendSubscriptionExpiryReminder(sixMonthSchoolsToUpdate);
-
-  //   // ----------------- Update subscription status -----------------
-  //   // Regular schools
-  //   await this.prisma.school.updateMany({
-  //     where: {
-  //       is_special: false,
-  //       is_paid: true,
-  //       subscription_end: { lt: now },
-  //     },
-  //     data: { is_paid: false },
-  //   });
-
-  //   // 6-month school
-  //   await this.prisma.school.updateMany({
-  //     where: {
-  //       is_special: true,
-  //       is_paid: true,
-  //       email: sixMonthSchoolEmail,
-  //       subscription_end: { lt: now },
-  //     },
-  //     data: { is_paid: false },
-  //   });
-
-  //   console.log('Expired subscriptions handled successfully.');
-  // }
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   // @Cron('*/55 * * * * *')
   async handleExpiredSubscriptions() {
