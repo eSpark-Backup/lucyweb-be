@@ -405,12 +405,19 @@ export class SchoolService {
           where: { school_id: id },
         });
 
-        // 3️⃣ Delete the school itself
+        // 3️⃣ Delete all content recipients linked to the school’s user
+        if (school.user_id) {
+          await tx.contentRecipient.deleteMany({
+            where: { user_id: school.user_id },
+          });
+        }
+
+        // 4️⃣ Delete the school itself
         await tx.school.delete({
           where: { id },
         });
 
-        // 4️⃣ Delete the school’s own login user so email can be reused
+        // 5️⃣ Now delete the school’s own login user
         if (school.user_id) {
           await tx.user.delete({
             where: { id: school.user_id },
