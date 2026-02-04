@@ -6,10 +6,6 @@ export class CreateContentDto {
   @IsNotEmpty({ each: true })
   content_types: string[];
 
-  @IsString()
-  @IsNotEmpty()
-  event_name: string;
-
   @IsArray()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
@@ -34,10 +30,6 @@ export class UpdateContentDto {
   @IsArray()
   @IsString({ each: true })
   content_types?: string[];
-
-  @IsOptional()
-  @IsString()
-  event_name?: string;
 
   @IsOptional()
   @IsArray()

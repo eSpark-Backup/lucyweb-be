@@ -390,6 +390,11 @@ export class EventService {
       attachment,
     } = data;
 
+    // Prepend event name to each text content item
+    const modifiedTextContent = text_content.map(
+      (text) => `${event.name}: ${text}`,
+    );
+
     const postMethod = await this.prisma.postMethod.findUnique({
       where: { name: post_method },
     });
@@ -400,7 +405,7 @@ export class EventService {
     const content = await this.prisma.content.create({
       data: {
         content_type: content_types,
-        text_content,
+        text_content: modifiedTextContent,
         attachment: attachment ?? null,
         event: { connect: { id: Number(eventId) } },
         content_recipients: content_recipients?.length
@@ -452,9 +457,17 @@ export class EventService {
       attachment,
     } = data;
 
+    // If text_content is provided, prepend event name to each item
+    const modifiedTextContent =
+      text_content !== undefined
+        ? text_content.map((text) => `${event.name}: ${text}`)
+        : undefined;
+
     const contentUpdateData: Prisma.ContentUpdateInput = {
       ...(content_types && { content_type: content_types }),
-      ...(text_content !== undefined && { text_content }),
+      ...(modifiedTextContent !== undefined && {
+        text_content: modifiedTextContent,
+      }),
       ...(attachment !== undefined && { attachment }),
       content_recipients: content_recipients?.length
         ? {
