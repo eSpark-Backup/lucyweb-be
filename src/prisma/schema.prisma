@@ -37,44 +37,44 @@ model TermsAndConditions {
 }
 
 model School {
-  id              Int           @id @default(autoincrement())
-  name            String
-  address         String
-  phone           String
-  description     String?
-  email           String        @unique
-  password        String?       
-  image           String?
-  created_at      DateTime      @default(now())
-  updated_at      DateTime      @updatedAt
+  id          Int      @id @default(autoincrement())
+  name        String
+  address     String
+  phone       String
+  description String?
+  email       String   @unique
+  password    String?
+  image       String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
   organization_id Int
-  organization    Organization  @relation(fields: [organization_id], references: [id])
+  organization    Organization @relation(fields: [organization_id], references: [id])
 
-  user_id         Int?          @unique          // link to login User
-  user            User?         @relation(fields: [user_id], references: [id])
+  user_id Int?  @unique // link to login User
+  user    User? @relation(fields: [user_id], references: [id])
 
-  is_paid         Boolean       @default(false)
-  subscription_end DateTime?   
-  is_special       Boolean     @default(false)
-  
-  events          Event[]
+  is_paid          Boolean   @default(false)
+  subscription_end DateTime?
+  is_special       Boolean   @default(false)
+
+  events Event[]
 }
 
 model Event {
   id          Int       @id @default(autoincrement())
   name        String
   type        String?
-  date_time   DateTime
+  start_date  DateTime
+  end_date    DateTime
   description String?
   user_id     Int
-  school_id   Int?                     // NEW: event belongs to a specific school
+  school_id   Int? // NEW: event belongs to a specific school
   image       String?
   contents    Content[]
   user        User      @relation(fields: [user_id], references: [id])
   school      School?   @relation(fields: [school_id], references: [id], onDelete: Cascade)
 }
-
 
 model Profile {
   id              Int           @id @default(autoincrement())
@@ -90,48 +90,43 @@ model Profile {
   user            User          @relation(fields: [user_id], references: [id])
 }
 
-
-
 model Organization {
-  id                    Int             @id @default(autoincrement())
-  name                  String
-  address               String
-  is_trust              Boolean         @default(false)
-  selected_school_count Int?
-  paid_school_count     Int             @default(0)
-  subscription_status   String?         // active, cancelled, past_due, etc.
-  stripe_subscription_id String?        @unique // Stripe subscription id (e.g. sub_xxx)
-  last_purchase         DateTime?
-  profiles              Profile[]
-  payments              Payment[]
-  schools               School[]
-  trust_locked          Boolean         @default(false)
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  address                String
+  is_trust               Boolean   @default(false)
+  selected_school_count  Int?
+  paid_school_count      Int       @default(0)
+  subscription_status    String? // active, cancelled, past_due, etc.
+  stripe_subscription_id String?   @unique // Stripe subscription id (e.g. sub_xxx)
+  last_purchase          DateTime?
+  profiles               Profile[]
+  payments               Payment[]
+  schools                School[]
+  trust_locked           Boolean   @default(false)
 }
 
 model Payment {
-  id                     Int          @id @default(autoincrement())
+  id                     Int      @id @default(autoincrement())
   organization_id        Int
-  amount                 Float        // total amount in GBP
-  currency               String       @default("GBP")
-  status                 String       @default("pending") // pending | success | failed
+  amount                 Float // total amount in GBP
+  currency               String   @default("GBP")
+  status                 String   @default("pending") // pending | success | failed
   description            String?
-  stripe_session_id      String?      @unique
-  stripe_subscription_id String?      // Stripe subscription for recurring billing
-  stripe_invoice_id      String?      @unique
-  schools_count          Int?         // number of schools covered in this payment
-  unit_price             Float?       // per-school price in GBP (e.g. 50.0 or 10.0)
-  created_at             DateTime     @default(now())
+  stripe_session_id      String?  @unique
+  stripe_subscription_id String? // Stripe subscription for recurring billing
+  stripe_invoice_id      String?  @unique
+  schools_count          Int? // number of schools covered in this payment
+  unit_price             Float? // per-school price in GBP (e.g. 50.0 or 10.0)
+  created_at             DateTime @default(now())
 
   // Relations
-  organization           Organization @relation(fields: [organization_id], references: [id])
+  organization Organization @relation(fields: [organization_id], references: [id])
 
   @@index([organization_id, status])
   @@index([stripe_session_id])
   @@index([stripe_invoice_id])
 }
-
-
-
 
 model Role {
   id       Int       @id @default(autoincrement())
@@ -139,8 +134,6 @@ model Role {
   profiles Profile[]
   users    User[]
 }
-
-
 
 model Content {
   id                 Int                @id @default(autoincrement())

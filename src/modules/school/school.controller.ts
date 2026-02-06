@@ -67,7 +67,7 @@ export class SchoolController {
       // 🔹 Events with every field + nested contents
       events:
         school.events?.map((event: any) => ({
-          ...event, // includes id, name, type, date_time, description, user_id, school_id, image, created_at, updated_at, etc.
+          ...event, // includes id, name, type, start_date, end_date, description, user_id, school_id, image, created_at, updated_at, etc.
           contents:
             event.contents?.map((c: any) => ({
               ...c, // includes id, event_id, content_type, text_content, attachment, created_at, updated_at

@@ -26,7 +26,7 @@ export class EventReminderJob {
       // Find events starting in exactly 5 days
       const events = await this.prisma.event.findMany({
         where: {
-          date_time: {
+          start_date: {
             gte: new Date(reminderDate.setHours(0, 0, 0, 0)),
             lt: new Date(reminderDate.setHours(23, 59, 59, 999)),
           },
@@ -52,7 +52,7 @@ export class EventReminderJob {
             `Reminder: ${event.name} starts in 5 days`,
             `<p>Hello,</p>
              <p>This is a friendly reminder that your event <strong>${event.name}</strong> 
-             will start on <strong>${event.date_time.toDateString()}</strong>.</p>
+             will start on <strong>${event.start_date.toDateString()}</strong>.</p>
              <p>See you there!</p>`,
           );
         }
