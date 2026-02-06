@@ -55,30 +55,30 @@ export class EventService {
     const endDate = new Date(Date.UTC(year, month, 1));
 
     const events = await this.prisma.event.groupBy({
-      by: ['date_time'],
+      by: ['start_date'],
       where: {
-        date_time: { gte: startDate, lt: endDate },
+        start_date: { gte: startDate, lt: endDate },
         user_id: userId,
       },
       _count: { id: true },
     });
 
     return events.map((event) => ({
-      date: event.date_time.toISOString().split('T')[0],
+      date: event.start_date.toISOString().split('T')[0],
       count: event._count.id,
     }));
   }
 
   async getEventsByDay(date: string, userId: number): Promise<Event[]> {
     const parsed = new Date(date);
-    const startDate = new Date(
+    const startOfDay = new Date(
       Date.UTC(
         parsed.getUTCFullYear(),
         parsed.getUTCMonth(),
         parsed.getUTCDate(),
       ),
     );
-    const endDate = new Date(
+    const endOfDay = new Date(
       Date.UTC(
         parsed.getUTCFullYear(),
         parsed.getUTCMonth(),
@@ -87,7 +87,11 @@ export class EventService {
     );
 
     return this.prisma.event.findMany({
-      where: { date_time: { gte: startDate, lt: endDate }, user_id: userId },
+      where: {
+        user_id: userId,
+        start_date: { lte: endOfDay },
+        end_date: { gte: startOfDay },
+      },
       include: {
         contents: true,
         school: {
@@ -139,12 +143,18 @@ export class EventService {
     });
     if (!user) throw new BadRequestException('User not found');
 
-    const eventDate = new Date(data.date_time);
-    if (isNaN(eventDate.getTime())) {
-      throw new BadRequestException('Invalid date_time format');
+    const startDate = new Date(data.start_date as string);
+    const endDate = new Date(data.end_date as string);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      throw new BadRequestException('Invalid date format');
     }
-    if (eventDate.getTime() < Date.now()) {
+    if (startDate.getTime() < Date.now()) {
       throw new BadRequestException('Cannot create events in the past');
+    }
+    if (startDate.getTime() > endDate.getTime()) {
+      throw new BadRequestException(
+        'Start date must be before or equal to end date',
+      );
     }
 
     let imageUrl: string | undefined;
@@ -199,7 +209,8 @@ export class EventService {
     return this.prisma.event.create({
       data: {
         ...rest,
-        date_time: eventDate,
+        start_date: startDate,
+        end_date: endDate,
         image: imageUrl,
         user: { connect: { id: userId } },
         school: { connect: schoolToConnect },
@@ -227,18 +238,45 @@ export class EventService {
     userId?: number,
     file?: Express.Multer.File | string,
   ): Promise<Event> {
-    // Validate and normalize date
-    if (data.date_time) {
-      const eventDate = new Date(data.date_time as string);
-      if (isNaN(eventDate.getTime())) {
-        throw new BadRequestException('Invalid date_time format.');
+    // Validate and normalize dates
+    if (data.start_date || data.end_date) {
+      const startDate = data.start_date
+        ? new Date(data.start_date as string)
+        : null;
+      const endDate = data.end_date ? new Date(data.end_date as string) : null;
+
+      if (startDate && isNaN(startDate.getTime())) {
+        throw new BadRequestException('Invalid start_date format.');
       }
-      if (eventDate.getTime() < Date.now()) {
+      if (endDate && isNaN(endDate.getTime())) {
+        throw new BadRequestException('Invalid end_date format.');
+      }
+
+      // Get current dates if not updating
+      const currentEvent = await this.prisma.event.findUnique({
+        where: { id },
+        select: { start_date: true, end_date: true },
+      });
+      const finalStartDate = startDate || currentEvent?.start_date;
+      const finalEndDate = endDate || currentEvent?.end_date;
+
+      if (finalStartDate && finalStartDate.getTime() < Date.now()) {
         throw new BadRequestException(
-          'Cannot set event date/time in the past.',
+          'Cannot set event start date in the past.',
         );
       }
-      data.date_time = new Date(eventDate.getTime());
+      if (
+        finalStartDate &&
+        finalEndDate &&
+        finalStartDate.getTime() > finalEndDate.getTime()
+      ) {
+        throw new BadRequestException(
+          'Start date must be before or equal to end date.',
+        );
+      }
+
+      if (startDate) data.start_date = startDate;
+      if (endDate) data.end_date = endDate;
     }
 
     // Handle image upload / URL
@@ -588,7 +626,7 @@ export class EventService {
 
     return this.prisma.event.findMany({
       where: { OR: orConditions },
-      orderBy: { date_time: 'desc' },
+      orderBy: { start_date: 'desc' },
       include: {
         contents: true,
         school: {

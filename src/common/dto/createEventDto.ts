@@ -15,10 +15,6 @@ export class CreateEventDto {
   name: string;
 
   @IsInt()
-  @IsNotEmpty()
-  time_span: number;
-
-  @IsInt()
   @IsOptional()
   school_id?: number;
 
@@ -33,7 +29,11 @@ export class CreateEventDto {
 
   @IsDateString()
   @IsNotEmpty()
-  date_time: string;
+  start_date: string;
+
+  @IsDateString()
+  @IsNotEmpty()
+  end_date: string;
 
   @IsString()
   @IsOptional()

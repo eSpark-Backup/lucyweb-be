@@ -121,7 +121,8 @@ export class OrganizationService {
         events: school.events.map((event) => ({
           id: event.id,
           name: event.name,
-          date_time: event.date_time,
+          start_date: event.start_date,
+          end_date: event.end_date,
           contents: event.contents,
         })),
       })),
