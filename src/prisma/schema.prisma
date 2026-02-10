@@ -44,7 +44,7 @@ model School {
   description String?
   email       String   @unique
   password    String?
-  image       String?
+  images      String[] @default([])
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
@@ -70,7 +70,7 @@ model Event {
   description String?
   user_id     Int
   school_id   Int? // NEW: event belongs to a specific school
-  image       String?
+  images      String[]
   contents    Content[]
   user        User      @relation(fields: [user_id], references: [id])
   school      School?   @relation(fields: [school_id], references: [id], onDelete: Cascade)

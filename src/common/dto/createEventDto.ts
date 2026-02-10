@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsNotEmpty,
   IsEmail,
+  IsArray,
 } from 'class-validator';
 
 export class CreateEventDto {
@@ -38,4 +39,9 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 }

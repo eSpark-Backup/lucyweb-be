@@ -12,10 +12,11 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateSchoolDto } from '../../common/dto/createSchoolDto';
@@ -46,7 +47,7 @@ export class SchoolController {
       phone: school.phone,
       email: school.email,
       description: school.description,
-      image: school.image,
+      images: school.images ?? [],
       is_paid: school.is_paid,
       is_special: school.is_special,
       subscription_end: school.subscription_end,
@@ -81,22 +82,25 @@ export class SchoolController {
   }
 
   @Post('create')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FilesInterceptor('images'))
   async createSchool(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
     @Body() createSchoolDto: CreateSchoolDto,
   ) {
     try {
-      let imageUrl: string | undefined;
-      if (file) {
-        imageUrl = await this.storageService.uploadFile(file);
+      let imageUrls: string[] = [];
+      if (files?.length) {
+        imageUrls = await Promise.all(
+          files.map((f) => this.storageService.uploadFile(f)),
+        );
+      } else if (Array.isArray((createSchoolDto as any).images)) {
+        imageUrls = (createSchoolDto as any).images as string[];
       }
 
-      // pass optional password along to service if provided
       const school = await this.schoolService.createSchool({
         ...createSchoolDto,
         password: createSchoolDto.password || undefined,
-        image: imageUrl || createSchoolDto.image,
+        images: imageUrls,
       });
 
       return {
@@ -157,16 +161,18 @@ export class SchoolController {
   }
 
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FilesInterceptor('images'))
   async updateSchool(
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
     @Body() updateData: Partial<CreateSchoolDto>,
   ) {
     try {
-      if (file) {
-        const imageUrl = await this.storageService.uploadFile(file);
-        updateData.image = imageUrl;
+      if (files?.length) {
+        const imageUrls = await Promise.all(
+          files.map((f) => this.storageService.uploadFile(f)),
+        );
+        (updateData as any).images = imageUrls;
       }
       // ignore password updates through this endpoint
       delete (updateData as any).password;
