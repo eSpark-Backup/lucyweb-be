@@ -15,6 +15,7 @@ import {
   NotFoundException,
   ParseIntPipe,
   BadRequestException,
+  UploadedFiles,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guard/jwtAuth.guard';
 import { EventService } from './event.service';
@@ -22,7 +23,7 @@ import { Role } from 'src/common/schema/roles.enum';
 import { Roles } from 'src/common/decorator/roles.decorator';
 import { Prisma, Content } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
 
 @Controller('events')
@@ -88,39 +89,25 @@ export class EventController {
 
   @Post()
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FilesInterceptor('images'))
   async createEvent(
     @Body() data: Prisma.EventCreateInput,
-    @UploadedFile() file: Express.Multer.File | string,
+    @UploadedFiles() files: Express.Multer.File[],
     @Request() req,
   ) {
-    let finalImage: Express.Multer.File | string = file;
-
-    if (!file && typeof data.image === 'string') {
-      // Means no uploaded file but URL sent under same key
-      finalImage = data.image; // keep URL
-    }
-
-    return this.eventsService.createEvent(data, req.user.id, finalImage);
+    return this.eventsService.createEvent(data, req.user.id, files);
   }
 
   @Put(':id')
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FilesInterceptor('images'))
   async updateEvent(
     @Param('id') id: string,
-    @Body() data: Prisma.EventUpdateInput & { school_id?: number | null },
-    @UploadedFile() file: Express.Multer.File | string,
+    @Body() data: Prisma.EventUpdateInput,
+    @UploadedFiles() files: Express.Multer.File[],
     @Req() req,
   ) {
-    let finalImage: Express.Multer.File | string = file;
-
-    if (!file && typeof data.image === 'string') {
-      finalImage = data.image;
-    }
-
-    return this.eventsService.updateEvent(+id, data, req.user.id, finalImage);
-    // pass userId from logged-in user, then file
+    return this.eventsService.updateEvent(+id, data, req.user.id, files);
   }
 
   @Delete(':id')

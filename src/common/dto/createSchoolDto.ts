@@ -5,6 +5,7 @@ import {
   IsInt,
   IsEmail,
   IsOptional,
+  IsArray,
 } from 'class-validator';
 
 export class CreateSchoolDto {
@@ -28,9 +29,10 @@ export class CreateSchoolDto {
   @IsOptional()
   description?: string;
 
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  image?: string;
+  images?: string[];
 
   @IsString()
   @IsOptional()
