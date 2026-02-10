@@ -2,6 +2,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { FIXED_UNIT_PRICE_GBP } from '../payment/payment.constants';
 
 @Injectable()
 export class SchoolService {
@@ -61,10 +62,12 @@ export class SchoolService {
       },
     });
 
-    if (!org || !org.is_trust) return 50;
+    // if (!org || !org.is_trust) return 50;
+    if (!org || !org.is_trust) return FIXED_UNIT_PRICE_GBP;
 
     // If discount already locked, always £10 for all
-    if (org.trust_locked) return 10;
+    // if (org.trust_locked) return 10;
+    if (org.trust_locked) return FIXED_UNIT_PRICE_GBP;
 
     // ────────── Trust pricing logic ──────────
     if (unpaidOnly) {
@@ -75,10 +78,12 @@ export class SchoolService {
           where: { id: organizationId },
           data: { trust_locked: true },
         });
-        return 10;
+        // return 10;
+        return FIXED_UNIT_PRICE_GBP;
       }
       // Before threshold: unpaid schools cost 50
-      return 50;
+      // return 50;
+      return FIXED_UNIT_PRICE_GBP;
     }
 
     // Regular calculation for all schools
@@ -87,10 +92,12 @@ export class SchoolService {
         where: { id: organizationId },
         data: { trust_locked: true },
       });
-      return 10;
+      // return 10;
+      return FIXED_UNIT_PRICE_GBP;
     }
 
-    return 50;
+    // return 50;
+    return FIXED_UNIT_PRICE_GBP;
   }
 
   async createSchool(data: any) {
@@ -265,7 +272,8 @@ export class SchoolService {
 
       const schoolsWithBilling = schools.map((s) => ({
         ...s,
-        cost: costMap.get(s.id) ?? 50,
+        // cost: costMap.get(s.id) ?? 50,
+        cost: costMap.get(s.id) ?? FIXED_UNIT_PRICE_GBP,
         organization: s.organization
           ? {
               ...s.organization,
@@ -448,10 +456,12 @@ export class SchoolService {
       });
 
       // ── Determine cost per school after deletion
-      let costPerSchool = 50; // default
+      // let costPerSchool = 50; // default
+      let costPerSchool = FIXED_UNIT_PRICE_GBP;
       if (org?.is_trust) {
         if (org.trust_locked) {
-          costPerSchool = 10;
+          // costPerSchool = 10;
+          costPerSchool = FIXED_UNIT_PRICE_GBP;
         } else if (
           (org.selected_school_count ?? 0) > 0 &&
           org.paid_school_count >= (org.selected_school_count ?? 0)
@@ -461,7 +471,8 @@ export class SchoolService {
             where: { id: school.organization_id },
             data: { trust_locked: true },
           });
-          costPerSchool = 10;
+          // costPerSchool = 10;
+          costPerSchool = FIXED_UNIT_PRICE_GBP;
         }
       }
 

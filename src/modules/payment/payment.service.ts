@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { SIX_MONTH_SCHOOL_EMAIL } from './subscription.service';
+import { FIXED_UNIT_PRICE_PENCE } from './payment.constants';
 
 export const LIFETIME_SCHOOL_EMAIL = 'lucyhood79@gmail.com';
 
@@ -75,7 +76,7 @@ export class PaymentService {
         );
       }
 
-      const selectedCount = org.selected_school_count ?? 0;
+      // const selectedCount = org.selected_school_count ?? 0;
       const createdCount = org.schools?.length ?? 0;
       if (createdCount === 0) {
         throw new HttpException(
@@ -101,9 +102,15 @@ export class PaymentService {
       // Pricing rule:
       // Case A: created < selected → £50 each
       // Case B: created >= selected → £10 each
-      const unitPricePence =
-        org.trust_locked || createdCount >= selectedCount ? 1000 : 5000;
-      const totalAmount = (unitPricePence * newSchools) / 100;
+      // const unitPricePence =
+      //   // org.trust_locked || createdCount >= selectedCount ? 1000 : 5000;
+      //   org.trust_locked || createdCount >= selectedCount
+      //     ? FIXED_UNIT_PRICE_PENCE
+      //     : FIXED_UNIT_PRICE_PENCE;
+
+      const unitPricePence = FIXED_UNIT_PRICE_PENCE;
+      // const totalAmount = (unitPricePence * newSchools) / 100;
+      const totalAmount = unitPricePence / 100;
 
       const session = await this.stripe.checkout.sessions.create({
         mode: 'subscription',
@@ -119,7 +126,8 @@ export class PaymentService {
               unit_amount: unitPricePence,
               recurring: { interval: 'month' },
             },
-            quantity: newSchools,
+            // quantity: newSchools,
+            quantity: 1,
           },
         ],
         success_url: `${this.baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -168,7 +176,8 @@ export class PaymentService {
 
       if (school?.email === SIX_MONTH_SCHOOL_EMAIL) {
         // special school only
-        const unitPricePence = 5000;
+        // const unitPricePence = 5000;
+        const unitPricePence = FIXED_UNIT_PRICE_PENCE;
         const session = await this.stripe.checkout.sessions.create({
           mode: 'subscription',
           payment_method_types: ['card'],
@@ -208,7 +217,8 @@ export class PaymentService {
         return { id: session.id, url: session.url };
       } else {
         // normal single school logic (monthly subscription)
-        const unitPricePence = 5000; // £50 per month
+        // const unitPricePence = 5000; // £50 per month
+        const unitPricePence = FIXED_UNIT_PRICE_PENCE;
         const session = await this.stripe.checkout.sessions.create({
           mode: 'subscription',
           payment_method_types: ['card'],
