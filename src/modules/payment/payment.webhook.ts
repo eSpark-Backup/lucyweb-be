@@ -14,6 +14,7 @@ import Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { LIFETIME_SCHOOL_EMAIL, PaymentService } from './payment.service';
+import { FIXED_UNIT_PRICE_GBP } from './payment.constants';
 
 @Controller('payment')
 export class PaymentWebhookController {
@@ -132,7 +133,9 @@ export class PaymentWebhookController {
                   stripe_invoice_id: invoice.id,
                   stripe_subscription_id: subscriptionId,
                   schools_count: originalPayment?.schools_count ?? 1,
-                  unit_price: originalPayment?.unit_price ?? 50,
+                  // unit_price: originalPayment?.unit_price ?? 50,
+                  unit_price:
+                    originalPayment?.unit_price ?? FIXED_UNIT_PRICE_GBP,
                   created_at: new Date(),
                 },
               });
