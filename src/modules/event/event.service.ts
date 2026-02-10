@@ -386,8 +386,16 @@ export class EventService {
   async getContentsByEventId(eventId: number): Promise<ContentResponse[]> {
     const contents = await this.prisma.content.findMany({
       where: { event_id: Number(eventId) },
+      include: { event: true },
     });
-    return contents.map((c) => ({ ...c, content_types: c.content_type }));
+
+    return contents.map((c) => ({
+      ...c,
+      text_content: normalizeToArray(c.text_content).map(
+        (t) => `${c.event.name}: ${t}`,
+      ),
+      content_types: c.content_type,
+    }));
   }
 
   async getContentById(
