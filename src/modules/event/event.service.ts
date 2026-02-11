@@ -474,10 +474,14 @@ export class EventService {
 
     if (content_recipients?.length) {
       const emailSubject = `New Content Created for Event: ${event.name}`;
+      const eventImages =
+        event.images && event.images.length > 0 ? event.images : undefined;
+
       const emailBody = this.emailService.createEmailBody(
         normalizeToArray(content.content_type),
         normalizeToArray(content.text_content),
         content.attachment ?? null,
+        eventImages,
       );
 
       await Promise.all(
@@ -552,10 +556,14 @@ export class EventService {
 
     if (content_recipients?.length) {
       const emailSubject = `Content Updated for Event: ${event.name}`;
+      const eventImages =
+        event.images && event.images.length > 0 ? event.images : undefined;
+
       const emailBody = this.emailService.createEmailBody(
         normalizeToArray(updatedContent.content_type),
         normalizeToArray(updatedContent.text_content),
         updatedContent.attachment ?? null,
+        eventImages,
       );
 
       await Promise.all(
@@ -608,10 +616,16 @@ export class EventService {
     }
 
     const emailSubject = `Content from Event: ${content.event.name}`;
+    const eventImages =
+      content.event.images && content.event.images.length > 0
+        ? content.event.images
+        : undefined;
+
     const emailBody = this.emailService.createEmailBody(
       normalizeToArray(content.content_type),
       normalizeToArray(content.text_content),
       content.attachment ?? null,
+      eventImages,
     );
 
     await this.emailService.sendEmail(userEmail, emailSubject, emailBody);
@@ -675,10 +689,14 @@ export class EventService {
     }
 
     const emailSubject = `Reminder: Upcoming Event - ${event.name}`;
+    const eventImages =
+      event.images && event.images.length > 0 ? event.images : undefined;
+
     const emailBody = this.emailService.createEmailBody(
       normalizeToArray(content_type),
       normalizeToArray(text_content),
       attachment ?? null,
+      eventImages,
     );
 
     await Promise.all(
