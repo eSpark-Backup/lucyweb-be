@@ -1,4 +1,5 @@
-/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -173,9 +174,18 @@ export class SchoolService {
         delete data.password;
       }
 
+      const { images_urls, ...rest } = data;
+
+      const imageUrls: string[] = [];
+
+      if (Array.isArray(rest.images)) {
+        imageUrls.push(...rest.images);
+      }
+
       const created = await this.prisma.school.create({
         data: {
-          ...data,
+          ...rest,
+          images: imageUrls,
           user_id: userId ?? null,
         },
         include: { organization: true },
@@ -348,9 +358,53 @@ export class SchoolService {
         data.organization_id = Number(data.organization_id);
       delete data.password;
 
+      const { images_urls, images: imagesFromController, ...rest } = data;
+
+      let imageUrls: string[] = [];
+
+      // Use new images from controller if provided
+      if (Array.isArray(imagesFromController) && imagesFromController.length) {
+        imageUrls.push(...imagesFromController);
+      }
+
+      // Merge any additional URLs from images_urls
+      if (images_urls && Array.isArray(images_urls)) {
+        imageUrls.push(...images_urls);
+      } else if (images_urls && typeof images_urls === 'string') {
+        imageUrls.push(images_urls);
+      }
+
+      // Fallback to existing images only if no new images provided
+      if (!imageUrls.length) {
+        const existing = await this.prisma.school.findUnique({
+          where: { id },
+          select: { images: true },
+        });
+        imageUrls = existing?.images ?? [];
+      }
+
+      // Remove duplicates & falsy
+      rest.images = imageUrls.filter((v, i, a) => v && a.indexOf(v) === i);
+
+      // Check if email is being updated and already exists on another school
+      if (rest.email) {
+        const existingSchool = await this.prisma.school.findFirst({
+          where: {
+            email: rest.email,
+            id: { not: id }, // exclude current school
+          },
+        });
+        if (existingSchool) {
+          throw new HttpException(
+            'A school with this email already exists',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
+
       const updated = await this.prisma.school.update({
         where: { id },
-        data,
+        data: rest, // images already set correctly in rest.images
         include: { organization: true },
       });
 

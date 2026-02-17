@@ -133,6 +133,7 @@ export class EventService {
     data: Prisma.EventCreateInput & {
       school_email?: string;
       image_url?: string;
+      images_urls?: string[];
     },
     userId: number,
     files?: Express.Multer.File[],
@@ -157,19 +158,22 @@ export class EventService {
       );
     }
 
-    let imageUrls: string[] = [];
+    const imageUrls: string[] = [];
 
-    // Accept file upload
+    // Upload files if provided
     if (files?.length) {
-      imageUrls = await Promise.all(
+      const uploadedFileUrls = await Promise.all(
         files.map((file) => this.storageService.uploadFile(file)),
       );
-    } else if (files && typeof files === 'string') {
-      // file is a string (URL) sent under same key
-      imageUrls = [files];
-    } else if (data.image_url) {
-      // fallback to image_url in data
-      imageUrls = [data.image_url];
+      imageUrls.push(...uploadedFileUrls);
+    }
+
+    // Accept image URLs if provided in separate key
+    if (data.images_urls && Array.isArray(data.images_urls)) {
+      imageUrls.push(...data.images_urls);
+    } else if (data.images_urls && typeof data.images_urls === 'string') {
+      // support single URL as string
+      imageUrls.push(data.images_urls);
     }
 
     let schoolToConnect: { id: number } | undefined;
@@ -205,7 +209,7 @@ export class EventService {
       );
     }
 
-    const { school_email, image_url, ...rest } = data;
+    const { school_email, image_url, images_urls, ...rest } = data;
 
     return this.prisma.event.create({
       data: {
@@ -235,6 +239,8 @@ export class EventService {
     data: Prisma.EventUpdateInput & {
       school_email?: string | null;
       image_url?: string;
+      images_urls?: string[];
+      images_files?: Express.Multer.File[];
     },
     userId?: number,
     files?: Express.Multer.File[],
@@ -281,20 +287,26 @@ export class EventService {
     }
 
     // Handle image upload / URL
-    let imageUrls: string[];
+    // Handle image upload / URL
+    let imageUrls: string[] = [];
 
-    // If new files uploaded → replace with new images
+    // Upload files if provided
     if (files?.length) {
-      imageUrls = await Promise.all(
+      const uploadedFileUrls = await Promise.all(
         files.map((file) => this.storageService.uploadFile(file)),
       );
+      imageUrls.push(...uploadedFileUrls);
     }
-    // Else if client sent images array → use it
-    else if (Array.isArray(data.images)) {
-      imageUrls = data.images as string[];
+
+    // Accept image URLs if provided in separate key
+    if (data.images_urls && Array.isArray(data.images_urls)) {
+      imageUrls.push(...data.images_urls);
+    } else if (data.images_urls && typeof data.images_urls === 'string') {
+      imageUrls.push(data.images_urls);
     }
-    // Else → keep existing images
-    else {
+
+    // If no files or URLs provided → keep existing images
+    if (!imageUrls.length) {
       const existingEvent = await this.prisma.event.findUnique({
         where: { id },
         select: { images: true },
@@ -360,7 +372,14 @@ export class EventService {
       existingImage = existingEvent?.images?.[0] || null;
     }
 
-    const { contents, school_email, images, ...eventData } = data;
+    const {
+      contents,
+      school_email,
+      images,
+      images_urls,
+      images_files,
+      ...eventData
+    } = data;
 
     const updatePayload: Prisma.EventUpdateInput = {
       ...eventData,
