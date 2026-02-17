@@ -16,12 +16,24 @@ import { LIFETIME_SCHOOL_EMAIL } from '../payment/payment.service';
 
 interface ContentResponse extends Content {
   content_types: Content['content_type'];
+  attachments?: string[];
 }
 
 function normalizeToArray(val: unknown): string[] {
   if (!val) return [];
   if (Array.isArray(val)) return val.map(String);
   return [String(val)];
+}
+
+function addEventImagesToContent(
+  content: Content,
+  eventImages: string[] = [],
+): ContentResponse {
+  return {
+    ...content,
+    content_types: content.content_type,
+    attachments: eventImages && eventImages.length > 0 ? eventImages : [],
+  };
 }
 
 @Injectable()
@@ -407,19 +419,29 @@ export class EventService {
     return { message: 'Event deleted successfully', data: deletedEvent };
   }
 
-  // ✅ Updated to return content_types
+  // ✅ Updated to return content_types and attachments with event images
   async getContentsByEventId(eventId: number): Promise<ContentResponse[]> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: Number(eventId) },
+      select: { images: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found.');
+    }
+
     const contents = await this.prisma.content.findMany({
       where: { event_id: Number(eventId) },
       include: { event: true },
     });
 
+    const eventImages = event.images || [];
+
     return contents.map((c) => ({
-      ...c,
+      ...addEventImagesToContent(c, eventImages),
       text_content: normalizeToArray(c.text_content).map(
         (t) => `${c.event.name}: ${t}`,
       ),
-      content_types: c.content_type,
     }));
   }
 
@@ -427,10 +449,12 @@ export class EventService {
     eventId: number,
     contentId: number,
   ): Promise<ContentResponse | null> {
-    const eventExists = await this.prisma.event.findUnique({
+    const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
+      select: { images: true },
     });
-    if (!eventExists) throw new NotFoundException('Event not found.');
+
+    if (!event) throw new NotFoundException('Event not found.');
 
     const content = await this.prisma.content.findUnique({
       where: { id: Number(contentId) },
@@ -440,7 +464,8 @@ export class EventService {
     if (!content || content.event.id !== eventId) {
       throw new NotFoundException('Content not found for this event.');
     }
-    return { ...content, content_types: content.content_type };
+
+    return addEventImagesToContent(content, event.images || []);
   }
 
   async createContent(
@@ -510,7 +535,7 @@ export class EventService {
       );
     }
 
-    return { ...content, content_types: content.content_type };
+    return addEventImagesToContent(content, event.images || []);
   }
 
   async updateContent(
@@ -592,17 +617,21 @@ export class EventService {
       );
     }
 
-    return { ...updatedContent, content_types: updatedContent.content_type };
+    return addEventImagesToContent(updatedContent, event.images || []);
   }
 
   async deleteContent(
     id: number,
     eventId: number,
   ): Promise<{ message: string; data: ContentResponse }> {
-    const eventExists = await this.prisma.event.findUnique({
+    const event = await this.prisma.event.findUnique({
       where: { id: Number(eventId) },
+      select: { images: true },
     });
-    if (!eventExists) throw new Error('Event not found.');
+
+    if (!event) {
+      throw new NotFoundException('Event not found.');
+    }
 
     const deletedContent = await this.prisma.content.delete({
       where: { id: Number(id) },
@@ -610,7 +639,7 @@ export class EventService {
 
     return {
       message: 'Content deleted successfully',
-      data: { ...deletedContent, content_types: deletedContent.content_type },
+      data: addEventImagesToContent(deletedContent, event.images || []),
     };
   }
 
