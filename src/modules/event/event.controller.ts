@@ -89,9 +89,9 @@ export class EventController {
 
   @Post()
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
-  @UseInterceptors(FilesInterceptor('images'))
+  @UseInterceptors(FilesInterceptor('images_files'))
   async createEvent(
-    @Body() data: Prisma.EventCreateInput,
+    @Body() data: Prisma.EventCreateInput & { images_urls?: string[] },
     @UploadedFiles() files: Express.Multer.File[],
     @Request() req,
   ) {
@@ -100,10 +100,10 @@ export class EventController {
 
   @Put(':id')
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
-  @UseInterceptors(FilesInterceptor('images'))
+  @UseInterceptors(FilesInterceptor('images_files'))
   async updateEvent(
     @Param('id') id: string,
-    @Body() data: Prisma.EventUpdateInput,
+    @Body() data: Prisma.EventUpdateInput & { images_urls?: string[] },
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req,
   ) {
