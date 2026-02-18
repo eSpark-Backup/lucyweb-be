@@ -25,11 +25,54 @@ import { Prisma, Content } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
+import { Res } from '@nestjs/common';
+import { Response } from 'express';
+import { Stream } from 'stream';
 
 @Controller('events')
 @UseGuards(JwtAuthGuard)
 export class EventController {
   constructor(private readonly eventsService: EventService) {}
+
+  @Get('download')
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
+  async downloadFile(@Query('fileUrl') fileUrl: string, @Res() res: Response) {
+    if (!fileUrl) {
+      throw new BadRequestException('fileUrl query parameter is required');
+    }
+
+    const fileStream: Stream =
+      await this.eventsService.downloadFileFromS3(fileUrl);
+
+    // Set proper headers for download
+    res.set({
+      'Content-Disposition': `attachment; filename="${fileUrl.split('/').pop()}"`,
+      'Content-Type': 'application/octet-stream',
+    });
+
+    fileStream.pipe(res);
+  }
+
+  @Post('download-multiple')
+  @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
+  async downloadMultipleFiles(
+    @Body('fileUrls') fileUrls: string[],
+    @Res() res: Response,
+  ) {
+    if (!fileUrls || !Array.isArray(fileUrls) || !fileUrls.length) {
+      throw new BadRequestException('fileUrls must be a non-empty array');
+    }
+
+    const zipStream =
+      await this.eventsService.downloadMultipleFilesAsZip(fileUrls);
+
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="images.zip"',
+    });
+
+    zipStream.pipe(res);
+  }
 
   @Get('count-by-day')
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)

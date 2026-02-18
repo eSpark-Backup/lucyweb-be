@@ -13,6 +13,9 @@ import { StorageService } from '../storage/storage.service';
 import { EmailService } from '../email/email.service';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
 import { LIFETIME_SCHOOL_EMAIL } from '../payment/payment.service';
+import { Readable } from 'stream';
+import * as archiver from 'archiver';
+import { PassThrough } from 'stream';
 
 interface ContentResponse extends Content {
   content_types: Content['content_type'];
@@ -783,5 +786,84 @@ export class EventService {
     }
 
     return response.json();
+  }
+
+  async downloadFileFromS3(fileUrl: string): Promise<Readable> {
+    if (!fileUrl) {
+      throw new BadRequestException('File URL is required');
+    }
+
+    const fileKey = fileUrl.split('/').pop();
+    if (!fileKey) {
+      throw new BadRequestException('Invalid file URL');
+    }
+
+    try {
+      const fileStream = await this.storageService.getFileStream(fileKey);
+      return fileStream;
+    } catch (error) {
+      console.error('Error downloading file from S3:', error);
+      throw new BadRequestException('Unable to download file from S3');
+    }
+  }
+
+  async downloadMultipleFilesAsZip(fileUrls: string[]): Promise<PassThrough> {
+    if (!fileUrls || !fileUrls.length) {
+      throw new BadRequestException('fileUrls array cannot be empty');
+    }
+
+    const zipStream = new PassThrough();
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (err: Error) => {
+      console.error('Archive error:', err);
+      zipStream.destroy(err);
+    });
+
+    zipStream.on('error', (err) => {
+      console.error('Zip stream error:', err);
+      archive.destroy();
+    });
+
+    archive.pipe(zipStream);
+
+    (async () => {
+      for (const fileUrl of fileUrls) {
+        if (!fileUrl) continue;
+
+        try {
+          let fileStream: Readable;
+          let filename: string;
+
+          // Check if it's an S3 URL
+          if (this.storageService.isS3Url(fileUrl)) {
+            const fileKey = this.storageService.extractKeyFromUrl(fileUrl);
+            if (!fileKey) {
+              console.warn(`Invalid S3 URL: ${fileUrl}`);
+              continue;
+            }
+            fileStream = await this.storageService.getFileStream(fileKey);
+            filename = fileKey;
+          } else {
+            // Download from external URL
+            fileStream =
+              await this.storageService.downloadExternalFile(fileUrl);
+            filename = this.storageService.extractFilenameFromUrl(fileUrl);
+          }
+
+          archive.append(fileStream, { name: filename });
+        } catch (err) {
+          console.error(`Failed to add file ${fileUrl} to ZIP:`, err);
+          // Continue with next file instead of failing
+        }
+      }
+
+      archive.finalize(); // finalize AFTER all append calls
+    })().catch((err) => {
+      console.error('Error processing files for ZIP:', err);
+      zipStream.destroy(err);
+    });
+
+    return zipStream;
   }
 }
