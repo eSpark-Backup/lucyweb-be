@@ -788,25 +788,31 @@ export class EventService {
     return response.json();
   }
 
-  async downloadFileFromS3(fileUrl: string): Promise<Readable> {
+  async downloadSingleFile(
+    fileUrl: string,
+  ): Promise<{ stream: Readable; filename: string }> {
     if (!fileUrl) {
       throw new BadRequestException('File URL is required');
     }
 
-    const fileKey = fileUrl.split('/').pop();
-    if (!fileKey) {
-      throw new BadRequestException('Invalid file URL');
+    let fileStream: Readable;
+    let filename: string;
+
+    if (this.storageService.isS3Url(fileUrl)) {
+      const fileKey = this.storageService.extractKeyFromUrl(fileUrl);
+      if (!fileKey) {
+        throw new BadRequestException('Invalid S3 URL');
+      }
+
+      fileStream = await this.storageService.getFileStream(fileKey);
+      filename = fileKey;
+    } else {
+      fileStream = await this.storageService.downloadExternalFile(fileUrl);
+      filename = this.storageService.extractFilenameFromUrl(fileUrl);
     }
 
-    try {
-      const fileStream = await this.storageService.getFileStream(fileKey);
-      return fileStream;
-    } catch (error) {
-      console.error('Error downloading file from S3:', error);
-      throw new BadRequestException('Unable to download file from S3');
-    }
+    return { stream: fileStream, filename };
   }
-
   async downloadMultipleFilesAsZip(fileUrls: string[]): Promise<PassThrough> {
     if (!fileUrls || !fileUrls.length) {
       throw new BadRequestException('fileUrls array cannot be empty');
