@@ -27,7 +27,6 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { SendReminderEmailDto } from 'src/common/dto/sentReminderEmailDto';
 import { Res } from '@nestjs/common';
 import { Response } from 'express';
-import { Stream } from 'stream';
 
 @Controller('events')
 @UseGuards(JwtAuthGuard)
