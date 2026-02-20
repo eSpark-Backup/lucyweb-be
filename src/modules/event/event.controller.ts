@@ -41,16 +41,15 @@ export class EventController {
       throw new BadRequestException('fileUrl query parameter is required');
     }
 
-    const fileStream: Stream =
-      await this.eventsService.downloadFileFromS3(fileUrl);
+    const { stream, filename } =
+      await this.eventsService.downloadSingleFile(fileUrl);
 
-    // Set proper headers for download
     res.set({
-      'Content-Disposition': `attachment; filename="${fileUrl.split('/').pop()}"`,
+      'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Type': 'application/octet-stream',
     });
 
-    fileStream.pipe(res);
+    stream.pipe(res);
   }
 
   @Post('download-multiple')
