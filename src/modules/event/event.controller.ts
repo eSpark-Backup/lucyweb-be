@@ -72,6 +72,11 @@ export class EventController {
     zipStream.pipe(res);
   }
 
+  @Post('import-public-events')
+  async importPublicEvents() {
+    return this.eventsService.importPublicEvents();
+  }
+
   @Get('count-by-day')
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getEventCountByDay(
@@ -96,7 +101,7 @@ export class EventController {
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
   async getMyEvents(@Req() req) {
     const events = await this.eventsService.getAllEventsByUserId(req.user.id);
-    if (!events.length) {
+    if (!events.user_events.length && !events.public_events.length) {
       return { message: 'No events found' };
     }
     return events;
@@ -120,11 +125,14 @@ export class EventController {
 
   @Get(':id')
   @Roles(Role.USER, Role.ADMIN, Role.SCHOOL)
-  async getEventById(@Param('id') id: string) {
-    const event = await this.eventsService.getEventById(parseInt(id));
+  async getEventById(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id;
+    const event = await this.eventsService.getEventById(parseInt(id), userId);
+
     if (!event) {
       throw new NotFoundException(`Event with ID ${id} not found`);
     }
+
     return event;
   }
 

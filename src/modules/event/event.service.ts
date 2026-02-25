@@ -6,7 +6,7 @@ import {
   NotFoundException,
   Query,
 } from '@nestjs/common';
-import { Content, Event, Prisma } from '@prisma/client';
+import { Content, Event, Prisma, School } from '@prisma/client';
 import { CreateContentDto, UpdateContentDto } from 'src/common/dto/contentDto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -16,6 +16,8 @@ import { LIFETIME_SCHOOL_EMAIL } from '../payment/payment.service';
 import { Readable } from 'stream';
 import * as archiver from 'archiver';
 import { PassThrough } from 'stream';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface ContentResponse extends Content {
   content_types: Content['content_type'];
@@ -58,6 +60,55 @@ export class EventService {
         (school.subscription_end && school.subscription_end < new Date()))
     ) {
       throw new ForbiddenException('Subscription expired');
+    }
+  }
+
+  async importPublicEvents(): Promise<{
+    message: string;
+    imported_count: number;
+  }> {
+    try {
+      const filePath = path.join(process.cwd(), 'src/data/public_events.json');
+      const rawData = fs.readFileSync(filePath, 'utf-8');
+      const events = JSON.parse(rawData);
+
+      if (!Array.isArray(events)) {
+        throw new Error('Invalid JSON format: Expected an array of events');
+      }
+
+      let importedCount = 0;
+
+      for (const event of events) {
+        // Check if an event with the same name already exists
+        const existingEvent = await this.prisma.event.findFirst({
+          where: { name: event.name },
+        });
+
+        if (!existingEvent) {
+          await this.prisma.event.create({
+            data: {
+              name: event.name,
+              description: event.description || '',
+              start_date: new Date(event.start_date),
+              end_date: new Date(event.end_date),
+              is_public: event.is_public ?? true,
+              images: event.images || [],
+              user: { connect: { id: event.user_id } },
+              school: event.school_id
+                ? { connect: { id: event.school_id } }
+                : undefined,
+            },
+          });
+          importedCount++;
+        }
+      }
+
+      return {
+        message: 'Public events imported successfully',
+        imported_count: importedCount,
+      };
+    } catch (err) {
+      throw new Error(`Failed to import public events: ${err.message}`);
     }
   }
 
@@ -121,9 +172,31 @@ export class EventService {
     });
   }
 
-  async getEventById(id: number): Promise<Event | null> {
-    return this.prisma.event.findUnique({
-      where: { id },
+  async getEventById(
+    id: number,
+    userId?: number,
+  ): Promise<
+    | (Event & {
+        school: {
+          id: number;
+          name: string;
+          email: string;
+          is_paid: boolean;
+          organization: { id: number; name: string } | null;
+        } | null;
+      })
+    | null
+  > {
+    const event = await this.prisma.event.findFirst({
+      where: {
+        id,
+        OR: [
+          { is_public: true }, // public events (school can be null)
+          ...(userId
+            ? [{ user_id: userId }, { school: { user_id: userId } }]
+            : []),
+        ],
+      },
       include: {
         contents: true,
         school: {
@@ -133,15 +206,26 @@ export class EventService {
             email: true,
             is_paid: true,
             organization: {
-              select: {
-                id: true,
-                name: true,
-              },
+              select: { id: true, name: true },
             },
           },
         },
       },
     });
+
+    if (!event) return null;
+
+    // Ensure school is null if it doesn't exist
+    if (!event.school) {
+      return { ...event, school: null };
+    }
+
+    // Ensure organization is null if school exists but no organization
+    if (event.school && !event.school.organization) {
+      event.school.organization = null;
+    }
+
+    return event;
   }
 
   async createEvent(
@@ -703,7 +787,23 @@ export class EventService {
       orConditions.push({ school_id: user.school.id });
     }
 
-    return this.prisma.event.findMany({
+    const publicEvents = await this.prisma.event.findMany({
+      where: { is_public: true },
+      orderBy: { start_date: 'desc' },
+      include: {
+        contents: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            is_paid: true,
+          },
+        },
+      },
+    });
+
+    const userEvents = await this.prisma.event.findMany({
       where: { OR: orConditions },
       orderBy: { start_date: 'desc' },
       include: {
@@ -718,6 +818,11 @@ export class EventService {
         },
       },
     });
+
+    return {
+      user_events: userEvents,
+      public_events: publicEvents,
+    };
   }
 
   async sendEmailToRecipients(
@@ -871,5 +976,51 @@ export class EventService {
     });
 
     return zipStream;
+  }
+
+  // EventService
+  async seedPublicAwarenessEvents(): Promise<{
+    message: string;
+    count: number;
+  }> {
+    const events = [
+      {
+        id: 1,
+        name: 'EVENT_NAME_1',
+        type: null,
+        start_date: new Date('YYYY-MM-DD'),
+        end_date: new Date('YYYY-MM-DD'),
+        description: 'DESCRIPTION_1',
+        user_id: 1, // system user
+        school_id: null,
+        images: ['IMAGE_URL_1', 'IMAGE_URL_2'],
+        contents: [],
+        is_public: true,
+      },
+      {
+        id: 2,
+        name: 'EVENT_NAME_2',
+        type: null,
+        start_date: new Date('YYYY-MM-DD'),
+        end_date: new Date('YYYY-MM-DD'),
+        description: 'DESCRIPTION_2',
+        user_id: 1,
+        school_id: null,
+        images: ['IMAGE_URL_1', 'IMAGE_URL_2'],
+        contents: [],
+        is_public: true,
+      },
+      // Add more events here
+    ];
+
+    const result = await this.prisma.event.createMany({
+      data: events,
+      skipDuplicates: true,
+    });
+
+    return {
+      message: 'Public awareness events seeded successfully',
+      count: result.count,
+    };
   }
 }

@@ -74,6 +74,7 @@ model Event {
   contents    Content[]
   user        User      @relation(fields: [user_id], references: [id])
   school      School?   @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  is_public   Boolean   @default(false)
 }
 
 model Profile {
