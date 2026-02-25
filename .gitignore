@@ -56,3 +56,5 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 .github/copilot-instructions.md
+src/data
+src/scripts
