@@ -68,7 +68,10 @@ export class EventService {
     imported_count: number;
   }> {
     try {
-      const filePath = path.join(process.cwd(), 'src/data/public_events.json');
+      const filePath = path.resolve(process.cwd(), 'public_events.json');
+      if (!fs.existsSync(filePath)) {
+        throw new Error('public_events.json file not found in root directory');
+      }
       const rawData = fs.readFileSync(filePath, 'utf-8');
       const events = JSON.parse(rawData);
 
@@ -432,28 +435,25 @@ export class EventService {
       if (user?.school) schoolToConnect = { id: user.school.id };
     }
 
-    if (!schoolToConnect) {
-      const existingEvent = await this.prisma.event.findUnique({
-        where: { id },
-        select: { school_id: true },
-      });
+    const existingEvent = await this.prisma.event.findUnique({
+      where: { id },
+      select: { school_id: true },
+    });
 
-      if (!existingEvent?.school_id) {
-        throw new BadRequestException('Event school not found');
-      }
-
+    // If event is public (school_id is null), allow update without school
+    if (!schoolToConnect && existingEvent?.school_id) {
       schoolToConnect = { id: existingEvent.school_id };
     }
 
-    // Check for duplicate event name **only within the same school**
-    if (data.name && schoolToConnect) {
+    if (data.name && schoolToConnect?.id) {
       const existingEvent = await this.prisma.event.findFirst({
         where: {
           name: data.name as string,
           school_id: schoolToConnect.id,
-          id: { not: id }, // exclude current event
+          id: { not: id },
         },
       });
+
       if (existingEvent) {
         throw new BadRequestException(
           `Another event with name "${data.name}" already exists in this school.`,
@@ -483,7 +483,7 @@ export class EventService {
     const updatePayload: Prisma.EventUpdateInput = {
       ...eventData,
       images: imageUrls,
-      ...(schoolToConnect ? { school: { connect: schoolToConnect } } : {}),
+      ...(schoolToConnect?.id ? { school: { connect: schoolToConnect } } : {}),
     };
 
     return this.prisma.event.update({
