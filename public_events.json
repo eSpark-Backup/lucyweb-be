@@ -6,7 +6,7 @@
     "end_date": "2026-01-24",
     "description": "Global, UN-recognised",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/bb644298-d4d4-4575-8817-15b60feb85a5.png"
     ],
@@ -20,7 +20,7 @@
     "end_date": "2026-01-18",
     "description": "Literacy/reading-focused fun day",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/b5d338eb-01ad-4bdf-9137-13f7bc28b7a2.jpg"
     ],
@@ -34,7 +34,7 @@
     "end_date": "2026-01-28",
     "description": "Creativity & play",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/10cafaaa-e87d-420b-91ce-60c2cd61431f.png"
     ],
@@ -48,7 +48,7 @@
     "end_date": "2026-01-29",
     "description": "dedicated to the enjoyment and benefits of puzzles of all kinds",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/ef086f9a-160b-4922-b092-65929ec4a95d.png"
     ],
@@ -62,7 +62,7 @@
     "end_date": "2026-02-07",
     "description": "Global; peace & community learning",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/899a7060-82e2-47d5-b52c-585cdacad498.jpg"
     ],
@@ -76,7 +76,7 @@
     "end_date": "2026-02-02",
     "description": "Global environmental learning",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/4a532186-f30e-4ae1-b3eb-ff9e45f27693.png"
     ],
@@ -90,7 +90,7 @@
     "end_date": "2026-02-15",
     "description": "UK awareness week",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/5d49f184-22a3-41b4-b97c-2e0cd387fef5.png"
     ],
@@ -104,7 +104,7 @@
     "end_date": "2026-02-09",
     "description": "Literacy and creativity",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/3c8f4a38-5eb6-4c5c-a8a3-0597444036d5.png"
     ],
@@ -118,7 +118,7 @@
     "end_date": "2026-02-12",
     "description": "UK school leadership focus",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/faa1f46b-3e06-4e10-b237-c8811ee9457d.jpg"
     ],
@@ -132,7 +132,7 @@
     "end_date": "2026-02-14",
     "description": "Global literacy promotion",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/2f4e48a8-3122-4aab-bac4-1bc9b0770b5b.png"
     ],
@@ -146,7 +146,7 @@
     "end_date": "2026-03-11",
     "description": "Global; gender equity learning",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/b11956c3-e468-4a0c-a6fc-2bc1f47629aa.png"
     ],
@@ -160,7 +160,7 @@
     "end_date": "2026-03-08",
     "description": "Global gender equality",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/a020cf2d-ebe2-4d2b-96ee-97e1d917b14f.png"
     ],
@@ -174,7 +174,7 @@
     "end_date": "2026-03-10",
     "description": "Fun culture/game theme for schools",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/0b5f03bb-5cdc-4230-a45e-b9bd04c4a426.png"
     ],
@@ -188,7 +188,7 @@
     "end_date": "2026-03-12",
     "description": "Health & nutrition in schools",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/e1530e55-97ca-46dd-bf01-92c44c34828e.png"
     ],
@@ -202,7 +202,7 @@
     "end_date": "2026-03-13",
     "description": "Social awareness & empathy",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/76a05dd7-8dc0-4a9e-bab1-605803029047.png"
     ],
@@ -216,7 +216,7 @@
     "end_date": "2026-03-26",
     "description": "Global maths celebration for students",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/1c030194-43d4-4d3d-b478-ee8abbb60f30.png"
     ],
@@ -230,7 +230,7 @@
     "end_date": "2026-03-20",
     "description": "Fundraising & kindness; widely observed in UK schools",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/5df53c17-2faf-41f3-8719-5cf59da31eac.jpg"
     ],
@@ -244,7 +244,7 @@
     "end_date": "2026-03-21",
     "description": "celebrating the enchanting art form of puppetry",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/2e51785a-6deb-4718-a3cb-81e492c8b154.png"
     ],
@@ -258,7 +258,7 @@
     "end_date": "2026-03-24",
     "description": "Creative & physical learning fun days",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/8a56a73f-9049-47ef-945c-d43975a9b37a.png"
     ],
@@ -272,7 +272,7 @@
     "end_date": "2026-03-31",
     "description": "celebrating the beloved drawing tool",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/15b3ad82-3195-4302-9ac4-05ce79501dc9.png"
     ],
@@ -286,7 +286,7 @@
     "end_date": "2026-04-02",
     "description": "Global literacy celebration",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/311c8bf8-358b-49b5-8d40-ceff2a1848f7.png"
     ],
@@ -300,7 +300,7 @@
     "end_date": "2026-04-02",
     "description": "Global inclusion awareness",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/01161fac-96ad-45e0-a6cd-55510c4e2225.png"
     ],
@@ -314,7 +314,7 @@
     "end_date": "2026-04-22",
     "description": "Global environmental learning — relevant in many schools",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/575eecdc-3914-47a3-8751-a45a7ef24768.png"
     ],
@@ -328,7 +328,7 @@
     "end_date": "2026-05-31",
     "description": "UK/Global literacy focus",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/760af94f-895a-4651-ae89-92e6da3e4d9f.png"
     ],
@@ -342,7 +342,7 @@
     "end_date": "2026-06-05",
     "description": "Global + UK school sustainability focus",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/a2a7a583-4e79-4022-b485-264c0ef7e975.png"
     ],
@@ -356,7 +356,7 @@
     "end_date": "2026-06-08",
     "description": "Environmental education theme",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/164b8eae-fc66-47c9-8c9e-8ffcdc151029.png"
     ],
@@ -370,7 +370,7 @@
     "end_date": "2026-06-11",
     "description": "Global play-focused day",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/2241884c-f9c2-4ee2-88c4-256459bcca7e.jpg"
     ],
@@ -384,7 +384,7 @@
     "end_date": "2026-06-20",
     "description": "Global empathy & social learning",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/1376e216-2c09-481e-9d57-2a277fddc550.jpg"
     ],
@@ -398,7 +398,7 @@
     "end_date": "2026-07-11",
     "description": "Global awareness topic",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/13e7b01e-3332-401e-a13a-db1983ca3af0.jpg"
     ],
@@ -412,7 +412,7 @@
     "end_date": "2026-09-06",
     "description": "UK literacy theme",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/b0e04f0d-1234-45cc-aa64-bb681ad61b0d.png"
     ],
@@ -426,7 +426,7 @@
     "end_date": "2026-09-08",
     "description": "Global literacy focus",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/41c4b94d-6f13-4e1b-a7ef-8e1e1b2636c8.png"
     ],
@@ -440,7 +440,7 @@
     "end_date": "2026-09-24",
     "description": "UK week promoting coding skills",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/0ebf27e2-fde4-4d13-962d-fcf506ac574b.png"
     ],
@@ -454,7 +454,7 @@
     "end_date": "2026-09-21",
     "description": "Global social learning",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/5832ee48-31c8-4d54-a3cc-dda754ad513c.png"
     ],
@@ -468,7 +468,7 @@
     "end_date": "2026-09-26",
     "description": "Global languages learning",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/ebd8eab7-5825-4e9b-bc9a-28e368b1c535.jpg"
     ],
@@ -482,7 +482,7 @@
     "end_date": "2026-10-10",
     "description": "Global educator appreciation",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/4bbd0085-617f-4307-bda2-f5b7074f2bec.png"
     ],
@@ -496,7 +496,7 @@
     "end_date": "2026-10-05",
     "description": "STEM/space learning theme",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/879da53c-0cf3-40da-8efa-7e709c7d8b1a.png"
     ],
@@ -510,7 +510,7 @@
     "end_date": "2026-11-14",
     "description": "UK school wellbeing theme",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/90ddcf7a-e698-4001-8e8d-d4c3fa381572.png"
     ],
@@ -524,7 +524,7 @@
     "end_date": "2026-11-20",
     "description": "Global child rights & wellbeing",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [
       "https://edupulse-storage.s3.ap-southeast-2.amazonaws.com/22c47d99-5fbb-4706-9b0c-5a696f645ee0.png"
     ],
@@ -538,7 +538,7 @@
     "end_date": "2026-11-05",
     "description": "Global/UN-recognised school safety theme",
     "user_id": 1,
-    "school_id": 0,
+    "school_id": null,
     "images": [],
     "contents": [],
     "is_public": true
