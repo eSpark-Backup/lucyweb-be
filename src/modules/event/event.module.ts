@@ -12,5 +12,6 @@ import { EmailModule } from '../email/email.module';
   imports: [PrismaModule, JwtModule, StorageModule, EmailModule],
   controllers: [EventController],
   providers: [EventService],
+  exports: [EventService],
 })
 export class EventModule {}

@@ -161,8 +161,10 @@ export class EventController {
 
   @Delete(':id')
   @Roles(Role.ADMIN, Role.SCHOOL, Role.USER)
-  async deleteEvent(@Param('id') id: string) {
-    return this.eventsService.deleteEvent(parseInt(id));
+  async deleteEvent(@Param('id') id: string, @Req() req) {
+    // service now enforces that the caller either owns the event or belongs
+    // to the same school, so supply the user id for verification.
+    return this.eventsService.deleteEvent(parseInt(id), req.user.id);
   }
 
   @Get(':eventId/contents')
