@@ -26,6 +26,17 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+This project contains logic specific to the LucyWeb backend. When a new
+school record is created an initial set of events (pulled from
+`public_events.json` in the workspace root) are duplicated and stored with
+that school. Each school gets its own copy so modifications and deletions
+only affect that particular institution.
+
+For organisations marked as `is_trust`, school users may manage events for
+**their own** school and organisation-level users may manage events across
+all schools in the same trust. The API ensures proper isolation so one
+district cannot see or edit another’s events.
+
 ## Project setup
 
 ```bash

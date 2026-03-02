@@ -4,10 +4,14 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { FIXED_UNIT_PRICE_GBP } from '../payment/payment.constants';
+import { EventService } from '../event/event.service';
 
 @Injectable()
 export class SchoolService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventService: EventService,
+  ) {}
 
   // Helper - returns latest payment (success first, fallback to any)
   private async getLatestPayment(organizationId: number) {
@@ -206,27 +210,41 @@ export class SchoolService {
         }
       }
 
-      // Cost for this new school only (unpaid logic)
-      const cost = await this.calculateCostPerSchool(
-        created.organization_id,
-        true,
-      );
+      // add default events for this school; use the newly created user where
+      // possible, fall back to any organization user or system admin (id 1)
+      try {
+        let ownerId = created.user_id ?? undefined;
+        if (!ownerId) {
+          const orgUser = await this.prisma.user.findFirst({
+            where: { profile: { organization_id: created.organization_id } },
+            select: { id: true },
+          });
+          ownerId = orgUser?.id;
+        }
+        await this.eventService.createDefaultEventsForSchool(
+          created.id,
+          ownerId,
+        );
+      } catch (err) {
+        // not fatal; log so we can investigate if the file is missing
+        console.error('error creating default events for school', err);
+      }
 
-      const payment = await this.getLatestPayment(created.organization_id);
-      const selected_school_count =
-        payment?.schools_count ??
-        created.organization?.selected_school_count ??
-        null;
-      const raw_unit_price = payment?.unit_price ?? null;
+      // We return the fully populated school (including costs and events) by
+      // reusing the helper that already calculates billing info.
+      const full = await this.getSchoolById(created.id);
+      if (full) return full;
 
+      // fallback: if something went wrong just return the raw created object
       return {
         ...created,
-        cost,
+        cost: await this.calculateCostPerSchool(created.organization_id, true),
         organization: created.organization
           ? {
               ...created.organization,
-              selected_school_count,
-              unit_price: raw_unit_price,
+              // we don't have the billing info here, but callers can ignore it
+              selected_school_count: null,
+              unit_price: null,
             }
           : null,
       };

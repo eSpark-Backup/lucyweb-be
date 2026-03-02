@@ -115,6 +115,71 @@ export class EventService {
     }
   }
 
+  /**
+   * Create a copy of every event defined in `public_events.json` and
+   * associate them with the given school.  This is invoked when a new
+   * school is created so that it starts with the standard set of
+   * public/holiday events.  The events are duplicated rather than
+   * linked so that subsequent edits or deletions affect only the
+   * requesting school.
+   *
+   * @param schoolId the school that should own the new events
+   * @param ownerUserId optional user id used as the `user_id` field on
+   *        the new events; if omitted we fall back to 1 (system
+   *        administrator).
+   * @returns number of events actually inserted (skips duplicates)
+   */
+  async createDefaultEventsForSchool(
+    schoolId: number,
+    ownerUserId?: number,
+  ): Promise<number> {
+    const filePath = path.resolve(process.cwd(), 'public_events.json');
+    if (!fs.existsSync(filePath)) {
+      // Not fatal for school creation; simply return zero.
+      return 0;
+    }
+
+    const rawData = fs.readFileSync(filePath, 'utf-8');
+    let events: any;
+    try {
+      events = JSON.parse(rawData);
+    } catch (err) {
+      // corrupted file, just skip
+      return 0;
+    }
+
+    if (!Array.isArray(events)) {
+      return 0;
+    }
+
+    let added = 0;
+    for (const ev of events) {
+      // avoid duplicates for this school by name
+      const existing = await this.prisma.event.findFirst({
+        where: { name: ev.name, school_id: schoolId },
+      });
+      if (existing) continue;
+
+      // prepare create data, using fallback values
+      const createData: Prisma.EventCreateInput = {
+        name: ev.name,
+        description: ev.description || '',
+        start_date: new Date(ev.start_date),
+        end_date: new Date(ev.end_date),
+        type: ev.type ?? undefined,
+        is_public: ev.is_public ?? true,
+        images: ev.images || [],
+        user: { connect: { id: ownerUserId ?? 1 } },
+        school: { connect: { id: schoolId } },
+      } as any;
+
+      await this.prisma.event.create({ data: createData });
+      added++;
+    }
+
+    return added;
+  }
+
   async getEventCountByDay(
     year: number,
     month: number,
@@ -155,11 +220,23 @@ export class EventService {
       ),
     );
 
+    // include events that either were created by the user or belong to
+    // the school where the user is the registered school account. this
+    // ensures that default events (which may have been inserted by a
+    // different internal user) still show up for the school user.
+    const baseConditions: any = {
+      start_date: { lte: endOfDay },
+      end_date: { gte: startOfDay },
+    };
+
     return this.prisma.event.findMany({
       where: {
-        user_id: userId,
-        start_date: { lte: endOfDay },
-        end_date: { gte: startOfDay },
+        AND: [
+          baseConditions,
+          {
+            OR: [{ user_id: userId }, { school: { user_id: userId } }],
+          },
+        ],
       },
       include: {
         contents: true,
@@ -190,14 +267,22 @@ export class EventService {
       })
     | null
   > {
+    let userSchoolId: number | null = null;
+    if (userId) {
+      const u = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { school: true },
+      });
+      userSchoolId = u?.school?.id ?? null;
+    }
+
     const event = await this.prisma.event.findFirst({
       where: {
         id,
         OR: [
-          { is_public: true }, // public events (school can be null)
-          ...(userId
-            ? [{ user_id: userId }, { school: { user_id: userId } }]
-            : []),
+          // only global/public events with no school attached
+          { is_public: true, school_id: null },
+          ...(userId ? [{ user_id: userId }, { school_id: userSchoolId }] : []),
         ],
       },
       include: {
@@ -437,8 +522,24 @@ export class EventService {
 
     const existingEvent = await this.prisma.event.findUnique({
       where: { id },
-      select: { school_id: true },
+      select: { school_id: true, user_id: true },
     });
+
+    // ensure the caller has permission to modify this event
+    if (userId) {
+      const eventOwner = existingEvent;
+      // allow if user created the event or it belongs to their school
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { school: true },
+      });
+      const belongsToSchool =
+        user?.school && eventOwner?.school_id === user.school.id;
+      const createdByUser = eventOwner?.user_id === userId;
+      if (!createdByUser && !belongsToSchool) {
+        throw new ForbiddenException('Not allowed to update this event');
+      }
+    }
 
     // If event is public (school_id is null), allow update without school
     if (!schoolToConnect && existingEvent?.school_id) {
@@ -498,7 +599,27 @@ export class EventService {
     });
   }
 
-  async deleteEvent(id: number): Promise<{ message: string; data: Event }> {
+  async deleteEvent(
+    id: number,
+    userId?: number,
+  ): Promise<{ message: string; data: Event }> {
+    // verify ownership/school association before deleting
+    if (userId) {
+      const ev = await this.prisma.event.findUnique({
+        where: { id },
+        select: { user_id: true, school_id: true },
+      });
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { school: true },
+      });
+      const owns = ev?.user_id === userId;
+      const sameSchool = user?.school && ev?.school_id === user.school.id;
+      if (!owns && !sameSchool) {
+        throw new ForbiddenException('Not allowed to delete this event');
+      }
+    }
+
     await this.prisma.content.deleteMany({ where: { event_id: Number(id) } });
     const deletedEvent = await this.prisma.event.delete({
       where: { id: Number(id) },
@@ -787,37 +908,23 @@ export class EventService {
       orConditions.push({ school_id: user.school.id });
     }
 
-    const publicEvents = await this.prisma.event.findMany({
-      where: { is_public: true },
-      orderBy: { start_date: 'desc' },
-      include: {
-        contents: true,
-        school: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            is_paid: true,
-          },
-        },
-      },
-    });
-
-    const userEvents = await this.prisma.event.findMany({
+    // public events for the user's own school only. the previous
+    // implementation returned every globally-public record which meant
+    // the second school could see the first school's defaults. filtering
+    // on school_id keeps copies isolated.
+    const allEvents = await this.prisma.event.findMany({
       where: { OR: orConditions },
       orderBy: { start_date: 'desc' },
       include: {
         contents: true,
         school: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            is_paid: true,
-          },
+          select: { id: true, name: true, email: true, is_paid: true },
         },
       },
     });
+
+    const publicEvents = allEvents.filter((e) => e.is_public);
+    const userEvents = allEvents.filter((e) => !e.is_public);
 
     return {
       user_events: userEvents,

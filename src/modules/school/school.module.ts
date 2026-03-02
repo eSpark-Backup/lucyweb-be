@@ -6,6 +6,7 @@ import { SchoolController } from './school.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { JwtModule } from '@nestjs/jwt';
+import { EventModule } from '../event/event.module';
 
 @Module({
   imports: [
@@ -13,6 +14,10 @@ import { JwtModule } from '@nestjs/jwt';
     PrismaModule,
     StorageModule,
     JwtModule.register({ secret: process.env.JWT_SECRET }),
+    // required for creating default events when a school is created
+    // avoids a circular dependency since EventModule does not import
+    // SchoolModule.
+    EventModule,
   ],
   controllers: [SchoolController],
   providers: [SchoolService],
