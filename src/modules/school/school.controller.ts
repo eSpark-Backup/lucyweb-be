@@ -48,6 +48,9 @@ export class SchoolController {
       description: school.description,
       images: school.images ?? [],
       is_paid: school.is_paid,
+      is_trial: school.is_trial,
+      trial_started_at: school.trial_started_at,
+      trial_ends_at: school.trial_ends_at,
       is_special: school.is_special,
       subscription_end: school.subscription_end,
       created_at: school.created_at,
@@ -235,6 +238,41 @@ export class SchoolController {
       console.error(error);
       throw new HttpException(
         error.message || 'Failed to delete school',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post(':id/trial/start')
+  async startTrial(@Param('id', ParseIntPipe) id: number) {
+    try {
+      const result = await this.schoolService.startTrial(id);
+      return {
+        success: true,
+        message: result.message,
+        data: { trial_ends_at: result.trial_ends_at },
+      };
+    } catch (error) {
+      console.error(error);
+      throw new HttpException(
+        error.message || 'Failed to start trial',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post(':id/trial/cancel')
+  async cancelTrial(@Param('id', ParseIntPipe) id: number) {
+    try {
+      const result = await this.schoolService.cancelTrial(id);
+      return {
+        success: true,
+        message: result.message,
+      };
+    } catch (error) {
+      console.error(error);
+      throw new HttpException(
+        error.message || 'Failed to cancel trial',
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
