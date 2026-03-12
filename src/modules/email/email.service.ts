@@ -159,6 +159,63 @@ export class EmailService {
     await this.sendEmail(email, subject, body);
   }
 
+  async sendTrialExpiredEmail(
+    email: string,
+    details: {
+      schoolName: string;
+      expiredAt?: string;
+    },
+  ): Promise<void> {
+    const subject = 'Your 24-Hour Trial Has Ended';
+
+    const body = `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px;">
+    
+    <h2 style="color: #E5533D; text-align: center; margin-bottom: 20px;">
+      Trial Period Ended
+    </h2>
+
+    <p style="font-size: 15px; color: #000;">
+      Hello <strong>${details.schoolName}</strong>,
+    </p>
+
+    <p style="font-size: 15px; color: #000;">
+      Your <strong>24-hour free trial</strong> has now ended.
+    </p>
+
+    <p style="font-size: 15px; color: #000;">
+      During the trial you were able to explore features like:
+    </p>
+
+    <ul style="font-size: 14px; color: #000; line-height: 1.6;">
+      <li>Create and manage events</li>
+      <li>Generate and publish content</li>
+      <li>Manage school communications</li>
+    </ul>
+
+    <p style="font-size: 15px; color: #000;">
+      To continue using these features without interruption, please upgrade your subscription.
+    </p>
+
+    <p style="font-size: 14px; color: #000;">
+      If you have any questions, feel free to contact our support team.
+    </p>
+
+    <p style="font-size: 13px; color: #666; margin-top: 30px; text-align: center;">
+      Thank you for trying <strong>${process.env.APP_NAME || 'Our Platform'}</strong>.
+    </p>
+
+    <p style="font-size: 12px; color: #999; text-align: center; margin-top: 20px;">
+      © ${new Date().getFullYear()} ${process.env.APP_NAME || 'Our Platform'}.
+      All rights reserved.
+    </p>
+
+  </div>
+  `;
+
+    await this.sendEmail(email, subject, body);
+  }
+
   // Create verification email template
   createVerificationEmailBody(
     verificationUrl: string,

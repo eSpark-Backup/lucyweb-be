@@ -238,6 +238,9 @@ export class SchoolService {
       // fallback: if something went wrong just return the raw created object
       return {
         ...created,
+        is_trial: created.is_trial,
+        trial_started_at: created.trial_started_at,
+        trial_ends_at: created.trial_ends_at,
         cost: await this.calculateCostPerSchool(created.organization_id, true),
         organization: created.organization
           ? {
@@ -300,6 +303,9 @@ export class SchoolService {
 
       const schoolsWithBilling = schools.map((s) => ({
         ...s,
+        is_trial: s.is_trial,
+        trial_started_at: s.trial_started_at,
+        trial_ends_at: s.trial_ends_at,
         // cost: costMap.get(s.id) ?? 50,
         cost: costMap.get(s.id) ?? FIXED_UNIT_PRICE_GBP,
         organization: s.organization
@@ -353,6 +359,9 @@ export class SchoolService {
 
       return {
         ...school,
+        is_trial: school.is_trial,
+        trial_started_at: school.trial_started_at,
+        trial_ends_at: school.trial_ends_at,
         cost,
         organization: school.organization
           ? {
@@ -439,6 +448,9 @@ export class SchoolService {
 
       return {
         ...updated,
+        is_trial: updated.is_trial,
+        trial_started_at: updated.trial_started_at,
+        trial_ends_at: updated.trial_ends_at,
         cost,
         organization: updated.organization
           ? {
@@ -561,6 +573,97 @@ export class SchoolService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  async startTrial(schoolId: number) {
+    try {
+      const school = await this.prisma.school.findUnique({
+        where: { id: schoolId },
+        select: {
+          id: true,
+          is_trial: true,
+          trial_started_at: true,
+          trial_ends_at: true,
+        },
+      });
+
+      if (!school) {
+        throw new HttpException('School not found', HttpStatus.NOT_FOUND);
+      }
+
+      if (school.trial_started_at) {
+        throw new HttpException(
+          'Free trial can only be started once for this school',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (school.is_trial) {
+        throw new HttpException('Trial already active', HttpStatus.BAD_REQUEST);
+      }
+
+      const now = new Date();
+      const trialEnds = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+      const updated = await this.prisma.school.update({
+        where: { id: schoolId },
+        data: {
+          is_trial: true,
+          trial_started_at: now,
+          trial_ends_at: trialEnds,
+        },
+      });
+
+      return {
+        message: 'Trial started successfully',
+        is_trial: updated.is_trial,
+        trial_started_at: updated.trial_started_at?.toISOString(),
+        trial_ends_at: updated.trial_ends_at?.toISOString(),
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Failed to start trial',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async cancelTrial(schoolId: number) {
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+      select: {
+        id: true,
+        is_trial: true,
+        trial_started_at: true,
+        trial_ends_at: true,
+      },
+    });
+
+    if (!school)
+      throw new HttpException('School not found', HttpStatus.NOT_FOUND);
+
+    if (!school.is_trial) {
+      throw new HttpException(
+        school.trial_started_at
+          ? 'Trial was already cancelled and cannot be cancelled again'
+          : 'Trial is not active',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const updated = await this.prisma.school.update({
+      where: { id: schoolId },
+      data: {
+        is_trial: false, // disable trial
+      },
+    });
+
+    return {
+      message: 'Trial cancelled successfully',
+      is_trial: updated.is_trial,
+      trial_started_at: updated.trial_started_at?.toISOString(),
+      trial_ends_at: updated.trial_ends_at?.toISOString(),
+    };
   }
 
   async someMethodUsingJoin() {

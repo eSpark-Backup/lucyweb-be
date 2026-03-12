@@ -21,7 +21,7 @@ export class OrganizationService {
   async createOrganization(
     createOrganizationDto: CreateOrganizationDto,
     email: string,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; organization: OrganizationDetails }> {
     const {
       name,
       address,
@@ -64,7 +64,15 @@ export class OrganizationService {
       },
     });
 
-    return { message: 'Organization created successfully' };
+    const organizationDetails = await this.getOrganizationDetailsByEmail(
+      email,
+      Role.OWNER,
+    );
+
+    return {
+      message: 'Organization created successfully',
+      organization: organizationDetails,
+    };
   }
 
   /**

@@ -76,6 +76,74 @@ export class SubscriptionService {
     console.log('Subscription check completed.');
   }
 
+  @Cron(CronExpression.EVERY_HOUR)
+  // @Cron('*/2 * * * *') // For testing: every 2 minutes
+  async handleExpiredTrials() {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+    try {
+      // Find trials that expired within the last hour
+      const expiredTrials = await this.prisma.school.findMany({
+        where: {
+          is_trial: true,
+          trial_ends_at: {
+            lt: now,
+            gte: oneHourAgo,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          trial_ends_at: true,
+        },
+      });
+
+      if (!expiredTrials.length) {
+        console.log('No expired trials found.');
+        return;
+      }
+
+      console.log(`Found ${expiredTrials.length} expired trials.`);
+
+      // Send follow-up emails
+      for (const school of expiredTrials) {
+        try {
+          await this.emailService.sendTrialExpiredEmail(school.email, {
+            schoolName: school.name,
+            expiredAt: school.trial_ends_at?.toISOString(),
+          });
+
+          console.log(`Trial expiry email sent to ${school.email}`);
+        } catch (emailError) {
+          console.error(
+            `Failed to send trial expiry email to ${school.email}`,
+            emailError,
+          );
+        }
+      }
+
+      // Disable trials
+      await this.prisma.school.updateMany({
+        where: {
+          id: { in: expiredTrials.map((s) => s.id) },
+        },
+        data: {
+          is_trial: false,
+        },
+      });
+
+      console.log(
+        `Trials expired and disabled for: ${expiredTrials
+          .map((s) => s.name)
+          .join(', ')}`,
+      );
+    } catch (error) {
+      console.error('Error processing expired trials', error);
+    }
+  }
+
   // Send subscription expiry reminder emails
   private async sendSubscriptionExpiryReminder(schools: any[]) {
     const lifetimeSchoolEmail = LIFETIME_SCHOOL_EMAIL;

@@ -58,6 +58,10 @@ model School {
   subscription_end DateTime?
   is_special       Boolean   @default(false)
 
+  is_trial         Boolean   @default(false)
+  trial_started_at DateTime?
+  trial_ends_at    DateTime?
+
   events Event[]
 }
 
