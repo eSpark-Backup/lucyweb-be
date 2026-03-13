@@ -190,6 +190,9 @@ export class UserService {
             email: true,
             is_paid: true,
             images: true,
+            is_trial: true,
+            trial_started_at: true,
+            trial_ends_at: true,
             organization: {
               select: {
                 id: true,
@@ -426,6 +429,9 @@ export class UserService {
             email: user.school.email,
             is_paid: user.school.is_paid,
             images: user.school.images ?? [],
+            is_trial: user.school.is_trial,
+            trial_started_at: user.school.trial_started_at,
+            trial_ends_at: user.school.trial_ends_at,
             organization: user.school.organization
               ? {
                   id: user.school.organization.id,
