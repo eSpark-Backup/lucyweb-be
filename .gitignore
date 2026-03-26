@@ -58,3 +58,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .github/copilot-instructions.md
 src/data
 src/scripts
+decode_base64.ts
+decoded_image.png
