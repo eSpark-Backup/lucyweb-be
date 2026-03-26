@@ -437,11 +437,14 @@ export class EventService {
       where: {
         name: data.name,
         school_id: schoolToConnect?.id,
+        start_date: startDate,
+        end_date: endDate,
       },
     });
+
     if (existingEvent) {
       throw new BadRequestException(
-        `Event with name "${data.name}" already exists.`,
+        `Exact same event already exists for this date.`,
       );
     }
 
@@ -615,18 +618,21 @@ export class EventService {
       schoolToConnect = { id: existingEvent.school_id };
     }
 
+    // Allow duplicate names during update (needed for duplication flow)
     if (data.name && schoolToConnect?.id) {
       const existingEvent = await this.prisma.event.findFirst({
         where: {
           name: data.name as string,
           school_id: schoolToConnect.id,
+          start_date: data.start_date as Date,
+          end_date: data.end_date as Date,
           id: { not: id },
         },
       });
 
       if (existingEvent) {
         throw new BadRequestException(
-          `Another event with name "${data.name}" already exists in this school.`,
+          `Exact same event already exists for this date.`,
         );
       }
     }
