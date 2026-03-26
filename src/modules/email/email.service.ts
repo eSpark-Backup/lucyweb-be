@@ -335,6 +335,10 @@ export class EmailService {
       mailOptions.attachments = attachments;
     }
 
+    if (!body || !body.replace(/<[^>]*>/g, '').trim()) {
+      return;
+    }
+
     try {
       await this.transporter.sendMail(mailOptions);
     } catch (error) {
@@ -373,18 +377,22 @@ export class EmailService {
       ? textContents
       : [String(textContents)];
 
-    const pairedBlocks = types.map((type, i) => {
-      const text = texts[i] ?? ''; // empty if missing
-      return `
+    const pairedBlocks = types
+      .map((type, i) => {
+        const text = texts[i];
+        if (!text || !text.trim()) return null;
+
+        return `
       <div style="margin-bottom:24px;">
         <h3 style="color:#4A90E2; margin:0 0 8px;">
-  ${escapeHtml(typeMap[type] ?? type)}
-         </h3>
+          ${escapeHtml(typeMap[type] ?? type)}
+        </h3>
         <p style="white-space:pre-wrap; line-height:1.6; color:#333; margin:0;">
           ${escapeHtml(text)}
         </p>
       </div>`;
-    });
+      })
+      .filter(Boolean);
 
     const eventImageHtml =
       eventImages && eventImages.length > 0
@@ -397,6 +405,10 @@ export class EmailService {
                .join('')}
            </div>`
         : '';
+
+    if (!pairedBlocks.length && !attachment && !eventImageHtml) {
+      return ''; // 🚨 No content → return empty body
+    }
 
     return `
     <div style="font-family:Arial,sans-serif; line-height:1.6; padding:20px; border:1px solid #ccc; border-radius:5px;">
