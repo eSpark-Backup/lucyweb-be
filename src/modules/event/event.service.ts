@@ -784,7 +784,9 @@ export class EventService {
     } = data;
 
     // Prepend event name to each text content item
-    const modifiedTextContent = text_content.map(
+    const safeTextContent = Array.isArray(text_content) ? text_content : [];
+
+    const modifiedTextContent = safeTextContent.map(
       (text) => `${event.name}: ${text}`,
     );
 
@@ -825,11 +827,20 @@ export class EventService {
         eventImages,
       );
 
-      await Promise.all(
-        content_recipients.map((recipient) =>
-          this.emailService.sendEmail(recipient, emailSubject, emailBody),
-        ),
-      );
+      const hasValidTextContent =
+        Array.isArray(text_content) && text_content.some((t) => t && t.trim());
+
+      if (!hasValidTextContent) {
+        throw new BadRequestException('Text content is required to send email');
+      }
+
+      if (emailBody && emailBody.replace(/<[^>]*>/g, '').trim()) {
+        await Promise.all(
+          content_recipients.map((recipient) =>
+            this.emailService.sendEmail(recipient, emailSubject, emailBody),
+          ),
+        );
+      }
     }
 
     return addEventImagesToContent(content, event.images || []);
@@ -854,15 +865,18 @@ export class EventService {
       attachment,
     } = data;
 
-    // If text_content is provided, prepend event name to each item
-    const modifiedTextContent =
-      text_content !== undefined
-        ? text_content.map((text) => `${event.name}: ${text}`)
-        : undefined;
+    // Prepare text_content safely
+    const modifiedTextContent = Array.isArray(text_content)
+      ? text_content
+          .map((text) =>
+            text && text.trim() ? `${event.name}: ${text.trim()}` : null,
+          )
+          .filter(Boolean)
+      : null;
 
     const contentUpdateData: Prisma.ContentUpdateInput = {
       ...(content_types && { content_type: content_types }),
-      ...(modifiedTextContent !== undefined && {
+      ...(modifiedTextContent !== null && {
         text_content: modifiedTextContent,
       }),
       ...(attachment !== undefined && { attachment }),
@@ -900,9 +914,21 @@ export class EventService {
       const eventImages =
         event.images && event.images.length > 0 ? event.images : undefined;
 
+      const textContents = normalizeToArray(updatedContent.text_content).filter(
+        (txt) => txt && txt.trim(),
+      );
+
+      if (
+        !textContents.length &&
+        !updatedContent.attachment &&
+        !event.images?.length
+      ) {
+        throw new BadRequestException('Cannot send empty content email.');
+      }
+
       const emailBody = this.emailService.createEmailBody(
         normalizeToArray(updatedContent.content_type),
-        normalizeToArray(updatedContent.text_content),
+        textContents,
         updatedContent.attachment ?? null,
         eventImages,
       );
