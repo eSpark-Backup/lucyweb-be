@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -22,6 +22,12 @@ export class AiService {
     promptText: string,
     contentTypes: string | string[],
   ): Promise<{ content_types: string; text: string }[]> {
+    if (!promptText || promptText.trim().length < 20) {
+      throw new BadRequestException(
+        'Please provide a more detailed event description',
+      );
+    }
+
     const types = Array.isArray(contentTypes) ? contentTypes : [contentTypes];
     const results: { content_types: string; text: string }[] = [];
 
