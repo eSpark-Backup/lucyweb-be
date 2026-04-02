@@ -918,13 +918,13 @@ export class EventService {
         (txt) => txt && txt.trim(),
       );
 
-      if (
-        !textContents.length &&
-        !updatedContent.attachment &&
-        !event.images?.length
-      ) {
-        throw new BadRequestException('Cannot send empty content email.');
-      }
+      // if (
+      //   !textContents.length &&
+      //   !updatedContent.attachment &&
+      //   !event.images?.length
+      // ) {
+      //   throw new BadRequestException('Cannot send empty content email.');
+      // }
 
       const emailBody = this.emailService.createEmailBody(
         normalizeToArray(updatedContent.content_type),
@@ -933,11 +933,15 @@ export class EventService {
         eventImages,
       );
 
-      await Promise.all(
-        content_recipients.map((recipient) =>
-          this.emailService.sendEmail(recipient, emailSubject, emailBody),
-        ),
-      );
+      try {
+        await Promise.all(
+          content_recipients.map((recipient) =>
+            this.emailService.sendEmail(recipient, emailSubject, emailBody),
+          ),
+        );
+      } catch (err) {
+        console.error('Email failed:', err);
+      }
     }
 
     return addEventImagesToContent(updatedContent, event.images || []);
