@@ -29,7 +29,7 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/schedule": "^6.0.1",
     "@prisma/client": "^6.15.0",
-    "@stripe/stripe-js": "^7.0.0",
+    "@stripe/stripe-js": "^9.16.0",
     "@types/axios": "^0.14.4",
     "@types/nodemailer": "^6.4.17",
     "archiver": "^7.0.1",
