@@ -39,7 +39,7 @@
     "class-validator": "^0.14.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "nodemailer": "^6.10.0",
+    "nodemailer": "^10.0.9",
     "openai": "^4.80.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
