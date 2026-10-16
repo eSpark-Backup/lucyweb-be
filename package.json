@@ -46,7 +46,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "stripe": "^18.0.0",
-    "uuid": "^11.0.5"
+    "uuid": "^14.0.3"
   },
   "prisma": {
     "schema": "src/prisma/schema.prisma",
